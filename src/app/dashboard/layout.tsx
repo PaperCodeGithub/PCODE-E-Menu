@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, createContext, useContext } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { onAuthStateChanged, signOut, type User } from 'firebase/auth';
@@ -41,6 +41,22 @@ import {
 import { Logo } from '@/components/icons';
 import type { RestaurantProfile } from '@/types';
 import { Progress } from '@/components/ui/progress';
+
+interface DashboardContextType {
+  user: User | null;
+  profile: RestaurantProfile | null;
+  loading: boolean;
+}
+
+const DashboardContext = createContext<DashboardContextType | null>(null);
+
+export const useDashboard = () => {
+    const context = useContext(DashboardContext);
+    if (!context) {
+        throw new Error('useDashboard must be used within a DashboardProvider');
+    }
+    return context;
+}
 
 export default function DashboardLayout({
   children,
@@ -122,10 +138,10 @@ export default function DashboardLayout({
     }
   };
 
-  if (loading) {
+  if (loading && pathname !== '/dashboard/profile') {
     return (
         <div className="flex items-center justify-center h-screen">
-            <p>Loading...</p>
+            <p>Loading Dashboard...</p>
         </div>
     );
   }
@@ -148,82 +164,84 @@ export default function DashboardLayout({
   ];
 
   return (
-    <SidebarProvider>
-      <Sidebar>
-        <SidebarHeader>
-          <div className="flex items-center gap-2 p-2">
-            <Logo className="w-8 h-8 text-primary" />
-            <h1 className="text-xl font-headline font-semibold">{profile?.name || 'E-Menu'}</h1>
-          </div>
-        </SidebarHeader>
-        <SidebarContent>
-          <SidebarMenu>
-            {navItems.map((item) => (
-              <SidebarMenuItem key={item.href}>
-                <SidebarMenuButton 
-                    asChild 
-                    isActive={item.href === '/dashboard' ? pathname === item.href : pathname.startsWith(item.href)}
-                    disabled={item.disabled} 
-                    className="group-data-[collapsible=icon]:justify-center">
-                  <Link href={item.href} aria-disabled={item.disabled} tabIndex={item.disabled ? -1 : undefined}>
-                    {item.icon}
-                    <span>{item.label}</span>
-                    {item.badge && <SidebarMenuBadge>{item.badge}</SidebarMenuBadge>}
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
-          </SidebarMenu>
-        </SidebarContent>
-      </Sidebar>
-      <SidebarInset>
-        <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background px-4 sm:px-6">
-          <SidebarTrigger className="md:hidden" />
-          <div className="ml-auto flex items-center gap-4">
-             {pendingOrderCount > 0 && (
-                <div className="relative">
-                  <Bell className="h-5 w-5 animate-pulse" />
-                  <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
-                  </span>
-                </div>
-            )}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage
-                      src={user?.photoURL || profile?.logo || ''}
-                      alt={user?.displayName || 'User'}
-                    />
-                    <AvatarFallback>
-                      {user?.email?.charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>{user?.email}</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href="/dashboard/profile">Profile</Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout}>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Logout
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </header>
-        <main className="flex-1 p-4 sm:p-6">
-            <div className="max-w-7xl mx-auto w-full">
-                 {children}
+    <DashboardContext.Provider value={{ user, profile, loading }}>
+        <SidebarProvider>
+        <Sidebar>
+            <SidebarHeader>
+            <div className="flex items-center gap-2 p-2">
+                <Logo className="w-8 h-8 text-primary" />
+                <h1 className="text-xl font-headline font-semibold">{profile?.name || 'E-Menu'}</h1>
             </div>
-        </main>
-      </SidebarInset>
-    </SidebarProvider>
+            </SidebarHeader>
+            <SidebarContent>
+            <SidebarMenu>
+                {navItems.map((item) => (
+                <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton 
+                        asChild 
+                        isActive={item.href === '/dashboard' ? pathname === item.href : pathname.startsWith(item.href)}
+                        disabled={item.disabled} 
+                        className="group-data-[collapsible=icon]:justify-center">
+                    <Link href={item.href} aria-disabled={item.disabled} tabIndex={item.disabled ? -1 : undefined}>
+                        {item.icon}
+                        <span>{item.label}</span>
+                        {item.badge && <SidebarMenuBadge>{item.badge}</SidebarMenuBadge>}
+                    </Link>
+                    </SidebarMenuButton>
+                </SidebarMenuItem>
+                ))}
+            </SidebarMenu>
+            </SidebarContent>
+        </Sidebar>
+        <SidebarInset>
+            <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background px-4 sm:px-6">
+            <SidebarTrigger className="md:hidden" />
+            <div className="ml-auto flex items-center gap-4">
+                {pendingOrderCount > 0 && (
+                    <div className="relative">
+                    <Bell className="h-5 w-5 animate-pulse" />
+                    <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
+                    </span>
+                    </div>
+                )}
+                <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                    <Avatar className="h-8 w-8">
+                        <AvatarImage
+                        src={user?.photoURL || profile?.logo || ''}
+                        alt={user?.displayName || 'User'}
+                        />
+                        <AvatarFallback>
+                        {user?.email?.charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                    </Avatar>
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                    <DropdownMenuLabel>{user?.email}</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                    <Link href="/dashboard/profile">Profile</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleLogout}>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Logout
+                    </DropdownMenuItem>
+                </DropdownMenuContent>
+                </DropdownMenu>
+            </div>
+            </header>
+            <main className="flex-1 p-4 sm:p-6">
+                <div className="max-w-7xl mx-auto w-full">
+                    {children}
+                </div>
+            </main>
+        </SidebarInset>
+        </SidebarProvider>
+    </DashboardContext.Provider>
   );
 }

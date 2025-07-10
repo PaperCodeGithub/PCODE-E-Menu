@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -30,7 +31,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Logo } from "@/components/icons";
 import { Skeleton } from '@/components/ui/skeleton';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
@@ -89,46 +90,53 @@ export function MenuClient({ restaurantId }: { restaurantId: string }) {
   }, [isDemo]);
   
   useEffect(() => {
-    const fetchAndSetData = async () => {
-      if (isDemo) {
-          setRestaurantProfile(sampleProfile);
-          setMenuData({ categories: sampleCategories, menuItems: sampleMenuItems });
-          setIsLoading(false);
-          return;
-      }
+    if (isDemo) {
+        setRestaurantProfile(sampleProfile);
+        setMenuData({ categories: sampleCategories, menuItems: sampleMenuItems });
+        setIsLoading(false);
+        return;
+    }
 
-      if (!restaurantId) {
-          setError("No restaurant ID provided.");
-          setIsLoading(false);
-          return;
-      }
+    if (!restaurantId) {
+        setError("No restaurant ID provided.");
+        setIsLoading(false);
+        return;
+    }
 
-      setIsLoading(true);
-      try {
-          const profileDocRef = doc(db, 'profiles', restaurantId);
-          const menuDocRef = doc(db, 'menus', restaurantId);
+    setIsLoading(true);
 
-          const [profileDoc, menuDoc] = await Promise.all([
-              getDoc(profileDocRef),
-              getDoc(menuDocRef)
-          ]);
-          
-          if (!profileDoc.exists() && !menuDoc.exists()) {
-              setError("This restaurant has not been set up yet.");
-          } else {
-              setRestaurantProfile(profileDoc.data() as RestaurantProfile || null);
-              setMenuData(menuDoc.data() as {categories: Category[], menuItems: MenuItem[]} || { categories: [], menuItems: []});
-          }
+    const profileDocRef = doc(db, 'profiles', restaurantId);
+    const menuDocRef = doc(db, 'menus', restaurantId);
 
-      } catch (err) {
-          console.error("Could not load menu data from Firestore:", err);
-          setError("Could not load menu. Please try again later.");
-      } finally {
-          setIsLoading(false);
-      }
-    };
+    const unsubProfile = onSnapshot(profileDocRef, (doc) => {
+        if (!doc.exists()) {
+            setError("This restaurant's profile could not be found.");
+        } else {
+            setRestaurantProfile(doc.data() as RestaurantProfile);
+        }
+    }, (err) => {
+        console.error("Error fetching profile:", err);
+        setError("Could not load restaurant profile.");
+    });
     
-    fetchAndSetData();
+    const unsubMenu = onSnapshot(menuDocRef, (doc) => {
+        if (!doc.exists()) {
+            setError("This restaurant has not set up their menu yet.");
+        } else {
+            setMenuData(doc.data() as {categories: Category[], menuItems: MenuItem[]});
+        }
+        setIsLoading(false);
+    }, (err) => {
+        console.error("Error fetching menu:", err);
+        setError("Could not load the menu.");
+        setIsLoading(false);
+    });
+
+    return () => {
+        unsubProfile();
+        unsubMenu();
+    };
+
   }, [restaurantId, isDemo]);
 
   const handleAddToOrder = (item: MenuItem) => {

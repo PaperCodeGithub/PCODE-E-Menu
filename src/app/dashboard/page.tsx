@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
@@ -21,10 +22,9 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { v4 as uuidv4 } from "uuid";
-import { onAuthStateChanged, type User } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase';
-import type { Category, MenuItem, RestaurantProfile } from "@/types";
+import { db } from '@/lib/firebase';
+import type { Category, MenuItem } from "@/types";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -67,10 +67,10 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { useRouter } from "next/navigation";
 import { Progress } from "@/components/ui/progress";
 import { generateDescription } from "@/ai/flows/generate-description-flow";
 import { generateImage } from "@/ai/flows/generate-image-flow";
+import { useDashboard } from "./layout";
 
 
 // Zod Schemas for Validation
@@ -87,9 +87,9 @@ const menuItemSchema = z.object({
 
 export default function DashboardPage() {
   const { toast } = useToast();
-  const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, profile, loading: dashboardLoading } = useDashboard();
+  
+  const [menuLoading, setMenuLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
@@ -97,7 +97,6 @@ export default function DashboardPage() {
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
-  const [profile, setProfile] = useState<RestaurantProfile | null>(null);
   const [menuItemsFilter, setMenuItemsFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
 
@@ -116,37 +115,23 @@ export default function DashboardPage() {
   const imageInputRef = React.useRef<HTMLInputElement>(null);
 
   const getMenuDocument = useCallback((uid: string) => doc(db, 'menus', uid), []);
-  const getProfileDocument = useCallback((uid: string) => doc(db, 'profiles', uid), []);
-
   const currencySymbol = useMemo(() => profile?.currency?.symbol || '$', [profile]);
 
-  // Auth listener
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      if (currentUser) {
-        setUser(currentUser);
-        setMenuUrl(`${window.location.origin}/menu/${currentUser.uid}`);
-      } else {
-        router.push('/login');
-      }
-    });
-    return () => unsubscribe();
-  }, [router]);
+    if (user?.uid) {
+        setMenuUrl(`${window.location.origin}/menu/${user.uid}`);
+    }
+  }, [user]);
 
   // Load data from Firestore
   useEffect(() => {
     if (!user) return;
     
     const loadData = async () => {
-        setLoading(true);
+        setMenuLoading(true);
         try {
             const menuDocRef = getMenuDocument(user.uid);
-            const profileDocRef = getProfileDocument(user.uid);
-            
-            const [menuDoc, profileDoc] = await Promise.all([
-                getDoc(menuDocRef),
-                getDoc(profileDocRef)
-            ]);
+            const menuDoc = await getDoc(menuDocRef);
 
             if (menuDoc.exists()) {
                 const data = menuDoc.data();
@@ -156,21 +141,16 @@ export default function DashboardPage() {
                 setCategories([]);
                 setMenuItems([]);
             }
-
-            if (profileDoc.exists()) {
-                setProfile(profileDoc.data() as RestaurantProfile);
-            }
-
         } catch (error) {
             console.error("Failed to load data from Firestore:", error);
             toast({ title: "Could not load data", description: "There was an error fetching your menu from the database.", variant: "destructive" });
         } finally {
-            setLoading(false);
+            setMenuLoading(false);
         }
     };
     
     loadData();
-  }, [user, toast, getMenuDocument, getProfileDocument]);
+  }, [user, toast, getMenuDocument]);
   
   // Save data to Firestore
   const saveData = useCallback(async (newCategories: Category[], newMenuItems: MenuItem[]) => {
@@ -383,8 +363,10 @@ export default function DashboardPage() {
     }
   };
   
+  const isLoading = dashboardLoading || menuLoading;
+
   useEffect(() => {
-    if (loading) {
+    if (isLoading) {
       const timer = setInterval(() => {
         setProgress((oldProgress) => {
           if (oldProgress >= 95) {
@@ -399,9 +381,9 @@ export default function DashboardPage() {
     } else {
         setProgress(100);
     }
-  }, [loading]);
+  }, [isLoading]);
 
-  if (loading) {
+  if (isLoading) {
     return (
         <div className="flex flex-col items-center justify-center h-40">
             <p className="mb-2">Loading Menu...</p>

@@ -2,11 +2,9 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { onAuthStateChanged, type User } from 'firebase/auth';
-import { collection, query, where, onSnapshot, orderBy, doc, getDoc } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase';
-import { useRouter } from 'next/navigation';
-import type { Order, RestaurantProfile } from '@/types';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import type { Order } from '@/types';
 import {
   Card,
   CardContent,
@@ -39,89 +37,50 @@ import {
     startOfMonth, 
     startOfYear, 
     isWithinInterval, 
-    format,
-    eachDayOfInterval,
-    endOfToday,
-    eachMonthOfInterval,
-    endOfMonth,
-    getDaysInMonth
+    format
 } from 'date-fns';
 import { Progress } from "@/components/ui/progress";
+import { useDashboard } from "../layout";
 
 type Timeframe = 'day' | 'month' | 'year';
 
 export default function StatisticsPage() {
-  const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
+  const { user, profile, loading: dashboardLoading } = useDashboard();
   const [allOrders, setAllOrders] = useState<Order[]>([]);
-  const [profile, setProfile] = useState<RestaurantProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [ordersLoading, setOrdersLoading] = useState(true);
   const [timeframe, setTimeframe] = useState<Timeframe>('day');
   const [progress, setProgress] = useState(0);
 
   const currencySymbol = useMemo(() => profile?.currency?.symbol || '$', [profile]);
 
   useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
-      if (currentUser) {
-        setUser(currentUser);
-      } else {
-        router.push('/login');
-      }
-    });
-    return () => unsubscribeAuth();
-  }, [router]);
-  
-  const getProfileDocument = useCallback((uid: string) => doc(db, 'profiles', uid), []);
-
-  useEffect(() => {
     if (!user) return;
 
-    setLoading(true);
+    setOrdersLoading(true);
 
-    const loadData = async () => {
-        try {
-            const profileDocRef = getProfileDocument(user.uid);
-            const ordersQuery = query(
-              collection(db, 'orders'),
-              where('restaurantId', '==', user.uid),
-              where('status', '==', 'Served')
-            );
+    const ordersQuery = query(
+        collection(db, 'orders'),
+        where('restaurantId', '==', user.uid),
+        where('status', '==', 'Served')
+    );
 
-            const profileDoc = await getDoc(profileDocRef);
-            if (profileDoc.exists()) {
-                setProfile(profileDoc.data() as RestaurantProfile);
-            }
+    const unsubscribe = onSnapshot(ordersQuery, (snapshot) => {
+        const fetchedOrders = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: doc.data().createdAt?.toDate()
+        })) as Order[];
+        
+        fetchedOrders.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+        setAllOrders(fetchedOrders);
+        setOrdersLoading(false);
+    }, (error) => {
+        console.error("Error fetching orders: ", error);
+        setOrdersLoading(false);
+    });
 
-            const unsubscribe = onSnapshot(ordersQuery, (snapshot) => {
-              const fetchedOrders = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data(),
-                createdAt: doc.data().createdAt?.toDate()
-              })) as Order[];
-              
-              fetchedOrders.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-              setAllOrders(fetchedOrders);
-              setLoading(false);
-            }, (error) => {
-              console.error("Error fetching orders: ", error);
-              setLoading(false);
-            });
-
-            return unsubscribe;
-
-        } catch (error) {
-            console.error("Error loading initial data: ", error);
-            setLoading(false);
-        }
-    };
-    
-    const unsubscribePromise = loadData();
-
-    return () => {
-      unsubscribePromise.then(unsubscribe => unsubscribe && unsubscribe());
-    };
-  }, [user, getProfileDocument]);
+    return () => unsubscribe();
+  }, [user]);
 
   const filteredOrders = useMemo(() => {
     const now = new Date();
@@ -163,7 +122,8 @@ export default function StatisticsPage() {
       return hourlyData;
     }
     if (timeframe === 'month') {
-      const daysInMonth = getDaysInMonth(new Date());
+      const now = new Date();
+      const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
       const dailyData = Array.from({ length: daysInMonth }, (_, i) => ({
         name: `${i + 1}`,
         Revenue: 0,
@@ -192,8 +152,10 @@ export default function StatisticsPage() {
     return allOrders.slice(0, 5);
   }, [allOrders]);
   
+  const isLoading = dashboardLoading || ordersLoading;
+
   useEffect(() => {
-    if (loading) {
+    if (isLoading) {
       const timer = setInterval(() => {
         setProgress((oldProgress) => {
           if (oldProgress >= 95) {
@@ -208,9 +170,9 @@ export default function StatisticsPage() {
     } else {
         setProgress(100);
     }
-  }, [loading]);
+  }, [isLoading]);
   
-  if (loading) {
+  if (isLoading) {
       return (
         <div className="flex flex-col items-center justify-center h-40">
             <p className="mb-2">Loading Statistics...</p>

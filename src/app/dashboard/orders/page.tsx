@@ -2,11 +2,9 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { onAuthStateChanged, type User } from 'firebase/auth';
-import { collection, query, where, onSnapshot, doc, updateDoc, orderBy, getDoc } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase';
-import { useRouter } from 'next/navigation';
-import type { Order, OrderStatus, RestaurantProfile } from '@/types';
+import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import type { Order, OrderStatus } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import {
   Select,
@@ -19,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { ShoppingBag, Clock } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { Progress } from '@/components/ui/progress';
+import { useDashboard } from '../layout';
 
 const statusColors: { [key in OrderStatus]: string } = {
   Received: "bg-blue-500",
@@ -30,45 +29,17 @@ const statusColors: { [key in OrderStatus]: string } = {
 };
 
 export default function OrdersPage() {
-  const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
+  const { user, profile, loading: dashboardLoading } = useDashboard();
   const [orders, setOrders] = useState<Order[]>([]);
-  const [profile, setProfile] = useState<RestaurantProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [ordersLoading, setOrdersLoading] = useState(true);
   const [progress, setProgress] = useState(0);
 
   const currencySymbol = useMemo(() => profile?.currency?.symbol || '$', [profile]);
 
   useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
-      if (currentUser) {
-        setUser(currentUser);
-      } else {
-        router.push('/login');
-      }
-    });
-    return () => unsubscribeAuth();
-  }, [router]);
-  
-  const getProfileDocument = useCallback((uid: string) => doc(db, 'profiles', uid), []);
-
-  useEffect(() => {
-    if (!user) return;
-    
-    const loadProfile = async () => {
-      const profileDoc = await getDoc(getProfileDocument(user.uid));
-      if (profileDoc.exists()) {
-          setProfile(profileDoc.data() as RestaurantProfile);
-      }
-    }
-    loadProfile();
-  }, [user, getProfileDocument]);
-
-
-  useEffect(() => {
     if (!user) return;
 
-    setLoading(true);
+    setOrdersLoading(true);
     const q = query(
       collection(db, 'orders'), 
       where('restaurantId', '==', user.uid)
@@ -90,10 +61,10 @@ export default function OrdersPage() {
       });
 
       setOrders(fetchedOrders);
-      setLoading(false);
+      setOrdersLoading(false);
     }, (error) => {
       console.error("Error fetching orders: ", error);
-      setLoading(false);
+      setOrdersLoading(false);
     });
 
     return () => unsubscribe();
@@ -111,9 +82,10 @@ export default function OrdersPage() {
   const activeOrders = orders.filter(o => o.status !== 'Served' && o.status !== 'Canceled');
   const pastOrders = orders.filter(o => o.status === 'Served' || o.status === 'Canceled');
 
+  const isLoading = dashboardLoading || ordersLoading;
 
   useEffect(() => {
-    if (loading) {
+    if (isLoading) {
       const timer = setInterval(() => {
         setProgress((oldProgress) => {
           if (oldProgress >= 95) {
@@ -128,9 +100,9 @@ export default function OrdersPage() {
     } else {
         setProgress(100);
     }
-  }, [loading]);
+  }, [isLoading]);
   
-  if (loading) {
+  if (isLoading) {
     return (
         <div className="flex flex-col items-center justify-center h-40">
             <p className="mb-2">Loading Orders...</p>
