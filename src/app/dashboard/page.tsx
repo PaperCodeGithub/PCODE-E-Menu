@@ -116,6 +116,7 @@ export default function DashboardPage() {
   const [categories, setCategories] = useState<Category[]>(initialCategories);
   const [menuItems, setMenuItems] = useState<MenuItem[]>(initialMenuItems);
   const [menuItemsFilter, setMenuItemsFilter] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
 
   const [isCategoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [isMenuItemDialogOpen, setMenuItemDialogOpen] = useState(false);
@@ -222,8 +223,12 @@ export default function DashboardPage() {
   };
   
   const filteredMenuItems = useMemo(() => {
-    return menuItems.filter(item => item.name.toLowerCase().includes(menuItemsFilter.toLowerCase()))
-  }, [menuItems, menuItemsFilter]);
+    return menuItems.filter(item => {
+        const nameMatch = item.name.toLowerCase().includes(menuItemsFilter.toLowerCase());
+        const categoryMatch = categoryFilter === 'all' || item.categoryId === categoryFilter;
+        return nameMatch && categoryMatch;
+    });
+  }, [menuItems, menuItemsFilter, categoryFilter]);
 
 
   return (
@@ -284,18 +289,27 @@ export default function DashboardPage() {
                   <MenuSquare className="h-6 w-6" />
                   <CardTitle className="text-xl font-headline">Manage Menu Items</CardTitle>
                 </div>
-                <div className="flex w-full sm:w-auto items-center gap-2">
-                    <div className="relative w-full sm:w-64">
+                <div className="flex w-full sm:w-auto items-center gap-2 flex-wrap">
+                    <div className="relative w-full sm:w-auto sm:flex-grow">
                         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                         <Input 
                             type="search" 
                             placeholder="Search by item name..." 
-                            className="pl-8"
+                            className="pl-8 w-full"
                             value={menuItemsFilter}
                             onChange={(e) => setMenuItemsFilter(e.target.value)}
                         />
                     </div>
-                    <Button onClick={() => handleOpenMenuItemDialog(null)} disabled={categories.length === 0} className="whitespace-nowrap">
+                     <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                        <SelectTrigger className="w-full sm:w-[180px]">
+                            <SelectValue placeholder="Filter by category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Categories</SelectItem>
+                            {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                    <Button onClick={() => handleOpenMenuItemDialog(null)} disabled={categories.length === 0} className="whitespace-nowrap sm:flex-grow-0">
                       <PlusCircle className="mr-2 h-4 w-4" /> Add Item
                     </Button>
                 </div>
