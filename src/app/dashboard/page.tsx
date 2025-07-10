@@ -15,6 +15,7 @@ import {
   Eye,
   Loader2,
   Sparkles,
+  ImagePlus,
 } from "lucide-react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -69,6 +70,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { Progress } from "@/components/ui/progress";
 import { generateDescription } from "@/ai/flows/generate-description-flow";
+import { generateImage } from "@/ai/flows/generate-image-flow";
+
 
 // Zod Schemas for Validation
 const categorySchema = z.object({
@@ -89,6 +92,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [progress, setProgress] = useState(0);
 
   const [categories, setCategories] = useState<Category[]>([]);
@@ -311,6 +315,32 @@ export default function DashboardPage() {
       });
     } finally {
       setIsGeneratingDescription(false);
+    }
+  };
+  
+  const handleGenerateImage = async () => {
+    const itemName = menuItemForm.getValues('name');
+    if (!itemName) {
+      toast({
+        title: 'Please enter an item name first.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsGeneratingImage(true);
+    try {
+      const imageUrl = await generateImage(itemName);
+      setImagePreview(imageUrl);
+    } catch (error) {
+      console.error('Failed to generate image:', error);
+      toast({
+        title: 'AI Image Generation Failed',
+        description: 'Could not generate an image. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsGeneratingImage(false);
     }
   };
 
@@ -548,10 +578,22 @@ export default function DashboardPage() {
               {menuItemForm.formState.errors.name && <p className="text-sm text-destructive">{menuItemForm.formState.errors.name.message}</p>}
             </div>
              <div className="space-y-2">
-              <Label htmlFor="itemImage">Item Image</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="itemImage">Item Image</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleGenerateImage}
+                    disabled={isGeneratingImage || isSaving}
+                  >
+                    {isGeneratingImage ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ImagePlus className="mr-2 h-4 w-4" />}
+                    Generate Image
+                  </Button>
+              </div>
               <div className="flex items-center gap-4">
                 <div className="w-24 h-24 rounded-md border bg-muted flex-shrink-0">
-                  {imagePreview && <Image src={imagePreview} alt="Preview" width={96} height={96} className="w-full h-full object-cover rounded-md" />}
+                  {imagePreview ? <Image src={imagePreview} alt="Preview" width={96} height={96} className="w-full h-full object-cover rounded-md" /> : null}
                 </div>
                 <Input id="itemImage" type="file" accept="image/*" onChange={handleImageChange} ref={imageInputRef} disabled={isSaving}/>
               </div>
