@@ -130,6 +130,8 @@ export default function DashboardPage() {
   const [isDeleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isQrDialogOpen, setQrDialogOpen] = useState(false);
   const [menuUrl, setMenuUrl] = useState("");
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const imageInputRef = React.useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     // This runs only on the client, avoiding hydration errors
@@ -159,6 +161,7 @@ export default function DashboardPage() {
 
   const handleOpenMenuItemDialog = (menuItem: MenuItem | null) => {
     setEditingMenuItem(menuItem);
+    setImagePreview(menuItem?.image || null);
     menuItemForm.reset(
       menuItem
         ? {
@@ -169,6 +172,10 @@ export default function DashboardPage() {
           }
         : { name: "", description: "", price: 0, categoryId: "" }
     );
+    // Clear the file input
+    if (imageInputRef.current) {
+      imageInputRef.current.value = "";
+    }
     setMenuItemDialogOpen(true);
   };
 
@@ -189,19 +196,21 @@ export default function DashboardPage() {
   };
 
   const handleMenuItemSubmit = (values: z.infer<typeof menuItemSchema>) => {
+    const image = imagePreview || "https://placehold.co/600x400.png";
     if (editingMenuItem) {
       setMenuItems(
         menuItems.map((item) =>
-          item.id === editingMenuItem.id ? { ...item, ...values } : item
+          item.id === editingMenuItem.id ? { ...item, ...values, image } : item
         )
       );
       toast({ title: "Menu Item Updated", description: `"${values.name}" has been updated.` });
     } else {
-      const newItem: MenuItem = { id: uuidv4(), ...values, image: "https://placehold.co/600x400.png" };
+      const newItem: MenuItem = { id: uuidv4(), ...values, image };
       setMenuItems([...menuItems, newItem]);
        toast({ title: "Menu Item Added", description: `"${values.name}" has been created.` });
     }
     setMenuItemDialogOpen(false);
+    setImagePreview(null);
   };
 
   const handleDelete = () => {
@@ -235,6 +244,17 @@ export default function DashboardPage() {
       if (!menuUrl) return "";
       return `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(menuUrl)}`;
   }, [menuUrl]);
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
 
   return (
@@ -411,6 +431,15 @@ export default function DashboardPage() {
               <Label htmlFor="itemName">Item Name</Label>
               <Input id="itemName" {...menuItemForm.register("name")} />
               {menuItemForm.formState.errors.name && <p className="text-sm text-destructive">{menuItemForm.formState.errors.name.message}</p>}
+            </div>
+             <div className="space-y-2">
+              <Label htmlFor="itemImage">Item Image</Label>
+              <div className="flex items-center gap-4">
+                <div className="w-24 h-24 rounded-md border bg-muted flex-shrink-0">
+                  {imagePreview && <Image src={imagePreview} alt="Preview" width={96} height={96} className="w-full h-full object-cover rounded-md" />}
+                </div>
+                <Input id="itemImage" type="file" accept="image/*" onChange={handleImageChange} ref={imageInputRef}/>
+              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="itemDescription">Description</Label>
