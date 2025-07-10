@@ -2,7 +2,8 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import Image from "next/image";
-import { Plus, Minus, ShoppingBag, Trash2, Loader2, Utensils } from 'lucide-react';
+import Link from 'next/link';
+import { Plus, Minus, ShoppingBag, Trash2, Loader2, Utensils, History } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { v4 as uuidv4 } from "uuid";
 import type { Category, MenuItem, OrderItem, RestaurantProfile, Order } from '@/types';
@@ -25,6 +26,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from "@/hooks/use-toast";
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 export default function MenuPage({ params }: { params: { restaurantId: string } }) {
   const { toast } = useToast();
@@ -37,6 +39,14 @@ export default function MenuPage({ params }: { params: { restaurantId: string } 
   const [isPlacingOrder, setPlacingOrder] = useState(false);
   const [isTableDialog, setTableDialog] = useState(false);
   const [tableNumber, setTableNumber] = useState("");
+  const [customerOrders, setCustomerOrders] = useState<string[]>([]);
+  
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const storedOrders = JSON.parse(localStorage.getItem('customerOrders') || '[]');
+      setCustomerOrders(storedOrders);
+    }
+  }, []);
   
   useEffect(() => {
     if (!params.restaurantId) {
@@ -116,9 +126,9 @@ export default function MenuPage({ params }: { params: { restaurantId: string } 
         await setDoc(doc(db, "orders", orderId), newOrder);
         
         // Save order ID to local storage to track
-        const customerOrders = JSON.parse(localStorage.getItem('customerOrders') || '[]');
-        customerOrders.push(orderId);
-        localStorage.setItem('customerOrders', JSON.stringify(customerOrders));
+        const updatedCustomerOrders = [...customerOrders, orderId];
+        localStorage.setItem('customerOrders', JSON.stringify(updatedCustomerOrders));
+        setCustomerOrders(updatedCustomerOrders);
 
         setTableDialog(false);
         setOrder([]);
@@ -191,6 +201,16 @@ export default function MenuPage({ params }: { params: { restaurantId: string } 
           <h1 className="text-4xl font-bold mt-2 font-headline">{restaurantProfile?.name || 'Restaurant Menu'}</h1>
           <p className="text-muted-foreground mt-1">{restaurantProfile?.location || 'Welcome! Scan, browse, and order.'}</p>
         </header>
+
+        {customerOrders.length > 0 && (
+           <Alert className="mb-8">
+            <History className="h-4 w-4" />
+              <AlertTitle>Welcome Back!</AlertTitle>
+              <AlertDescription>
+                You have previous orders here. <Link href={`/order-status/${customerOrders[customerOrders.length - 1]}`} className="font-bold underline">Check your latest order status.</Link>
+              </AlertDescription>
+            </Alert>
+        )}
 
         <main className="space-y-12">
           {categories.map((category) => {
