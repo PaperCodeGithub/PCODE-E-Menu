@@ -30,7 +30,7 @@ const prompt = ai.definePrompt({
 
 The name of the dish is: {{{dishName}}}
 
-Generate a single paragraph description. Do not use markdown or any special formatting. Just return the text of the description.`,
+Generate a single paragraph description. Do not use markdown or any special formatting. Just return the text of the description. If you are unable to generate a description for any reason, return the string "Unable to generate description."`,
 });
 
 const generateDescriptionFlow = ai.defineFlow(
