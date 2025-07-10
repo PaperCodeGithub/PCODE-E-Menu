@@ -153,7 +153,7 @@ export default function DashboardPage() {
   }, [user, toast, getMenuDocument]);
   
   // Save data to Firestore
-  const saveData = useCallback(async (data: { categories?: Category[], menuItems?: MenuItem[] }) => {
+  const saveData = useCallback(async (data: { categories: Category[], menuItems: MenuItem[] }) => {
       if (!user) return;
       try {
         await setDoc(getMenuDocument(user.uid), data, { merge: true });
@@ -217,7 +217,7 @@ export default function DashboardPage() {
     }
     
     try {
-      await saveData({ categories: updatedCategories });
+      await saveData({ categories: updatedCategories, menuItems: menuItems });
       setCategories(updatedCategories);
       if (editingCategory) {
         toast({ title: "Category Updated", description: `"${values.name}" has been updated.` });
@@ -247,7 +247,7 @@ export default function DashboardPage() {
     }
 
     try {
-      await saveData({ menuItems: updatedMenuItems });
+      await saveData({ categories: categories, menuItems: updatedMenuItems });
       setMenuItems(updatedMenuItems);
       if (editingMenuItem) {
           toast({ title: "Menu Item Updated", description: `"${values.name}" has been updated.` });
