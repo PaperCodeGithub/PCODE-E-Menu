@@ -212,7 +212,11 @@ export default function DashboardLayout({
             </DropdownMenu>
           </div>
         </header>
-        <main className="flex-1 p-4 sm:p-6">{children}</main>
+        <main className="flex-1 p-4 sm:p-6">
+            <div className="max-w-7xl mx-auto w-full">
+                 {children}
+            </div>
+        </main>
       </SidebarInset>
     </SidebarProvider>
   );
