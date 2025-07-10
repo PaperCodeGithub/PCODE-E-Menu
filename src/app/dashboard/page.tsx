@@ -153,13 +153,14 @@ export default function DashboardPage() {
   }, [user, toast, getMenuDocument]);
   
   // Save data to Firestore
-  const saveData = useCallback(async (newCategories: Category[], newMenuItems: MenuItem[]) => {
+  const saveData = useCallback(async (data: { categories?: Category[], menuItems?: MenuItem[] }) => {
       if (!user) return;
       try {
-        await setDoc(getMenuDocument(user.uid), { categories: newCategories, menuItems: newMenuItems });
+        await setDoc(getMenuDocument(user.uid), data, { merge: true });
       } catch (error) {
         console.error("Failed to save to Firestore:", error);
         toast({ title: "Could not save data", description: "Your changes could not be saved to the database.", variant: "destructive" });
+        throw error; // re-throw error to be caught by caller
       }
   }, [user, getMenuDocument, toast]);
 
@@ -215,17 +216,20 @@ export default function DashboardPage() {
       updatedCategories = [...categories, newCategory];
     }
     
-    await saveData(updatedCategories, menuItems);
-    setCategories(updatedCategories);
-
-    if (editingCategory) {
-      toast({ title: "Category Updated", description: `"${values.name}" has been updated.` });
-    } else {
-      toast({ title: "Category Added", description: `"${values.name}" has been created.` });
+    try {
+      await saveData({ categories: updatedCategories });
+      setCategories(updatedCategories);
+      if (editingCategory) {
+        toast({ title: "Category Updated", description: `"${values.name}" has been updated.` });
+      } else {
+        toast({ title: "Category Added", description: `"${values.name}" has been created.` });
+      }
+      setCategoryDialogOpen(false);
+    } catch (e) {
+      // Error toast is shown in saveData
+    } finally {
+      setIsSaving(false);
     }
-    
-    setCategoryDialogOpen(false);
-    setIsSaving(false);
   };
 
   const handleMenuItemSubmit = async (values: z.infer<typeof menuItemSchema>) => {
@@ -242,18 +246,21 @@ export default function DashboardPage() {
       updatedMenuItems = [...menuItems, newItem];
     }
 
-    await saveData(categories, updatedMenuItems);
-    setMenuItems(updatedMenuItems);
-    
-    if (editingMenuItem) {
-        toast({ title: "Menu Item Updated", description: `"${values.name}" has been updated.` });
-    } else {
-        toast({ title: "Menu Item Added", description: `"${values.name}" has been created.` });
+    try {
+      await saveData({ menuItems: updatedMenuItems });
+      setMenuItems(updatedMenuItems);
+      if (editingMenuItem) {
+          toast({ title: "Menu Item Updated", description: `"${values.name}" has been updated.` });
+      } else {
+          toast({ title: "Menu Item Added", description: `"${values.name}" has been created.` });
+      }
+      setMenuItemDialogOpen(false);
+      setImagePreview(null);
+    } catch (e) {
+        // Error toast is shown in saveData
+    } finally {
+      setIsSaving(false);
     }
-
-    setMenuItemDialogOpen(false);
-    setImagePreview(null);
-    setIsSaving(false);
   };
 
   const handleDelete = async () => {
@@ -273,18 +280,22 @@ export default function DashboardPage() {
       updatedMenuItems = menuItems.filter((item) => item.id !== itemToDelete.id);
     }
     
-    await saveData(updatedCategories, updatedMenuItems);
-    setCategories(updatedCategories);
-    setMenuItems(updatedMenuItems);
+    try {
+      await saveData({ categories: updatedCategories, menuItems: updatedMenuItems });
+      setCategories(updatedCategories);
+      setMenuItems(updatedMenuItems);
 
-    if (itemToDelete.type === 'category') {
-      toast({ title: "Category Deleted", description: `"${categoryName}" and its items were deleted.`, variant: "destructive" });
-    } else {
-      toast({ title: "Menu Item Deleted", description: `"${itemName}" was deleted.`, variant: "destructive" });
+      if (itemToDelete.type === 'category') {
+        toast({ title: "Category Deleted", description: `"${categoryName}" and its items were deleted.`, variant: "destructive" });
+      } else {
+        toast({ title: "Menu Item Deleted", description: `"${itemName}" was deleted.`, variant: "destructive" });
+      }
+    } catch (e) {
+        // Error toast is shown in saveData
+    } finally {
+        setDeleteDialogOpen(false);
+        setItemToDelete(null);
     }
-    
-    setDeleteDialogOpen(false);
-    setItemToDelete(null);
   };
   
   const handleGenerateDescription = async () => {
