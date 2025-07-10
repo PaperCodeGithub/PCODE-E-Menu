@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Order, OrderStatus } from '@/types';
@@ -22,7 +23,10 @@ const statusMap: { [key in OrderStatus]: { step: number; label: string; Icon: Re
 };
 const TOTAL_STEPS = 5;
 
-function OrderStatusClient({ orderId }: { orderId: string }) {
+export default function OrderStatusPage() {
+  const params = useParams();
+  const orderId = params.orderId as string;
+
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -145,8 +149,4 @@ function OrderStatusClient({ orderId }: { orderId: string }) {
       </Card>
     </div>
   );
-}
-
-export default function OrderStatusPage({ params }: { params: { orderId: string } }) {
-    return <OrderStatusClient orderId={params.orderId} />;
 }
