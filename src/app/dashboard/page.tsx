@@ -17,6 +17,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { v4 as uuidv4 } from "uuid";
 
+import { onAuthStateChanged, type User } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 import type { Category, MenuItem } from "@/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -60,7 +62,7 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Logo } from "@/components/icons";
+import { useRouter } from "next/navigation";
 
 // Default Mock Data for first-time use
 const initialCategories: Category[] = [
@@ -109,11 +111,12 @@ const menuItemSchema = z.object({
   categoryId: z.string().min(1, "You must select a category."),
 });
 
-// A unique key for storing this restaurant's data. In a real app, this would be the restaurant's ID.
-const RESTAURANT_DATA_KEY = "qr-menu-data-1";
 
 export default function DashboardPage() {
   const { toast } = useToast();
+  const router = useRouter();
+  const [user, setUser] = useState<User | null>(null);
+
   const [categories, setCategories] = useState<Category[]>([]);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [menuItemsFilter, setMenuItemsFilter] = useState("");
@@ -133,8 +136,23 @@ export default function DashboardPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const imageInputRef = React.useRef<HTMLInputElement>(null);
 
+  const RESTAURANT_DATA_KEY = useMemo(() => user ? `qr-menu-data-${user.uid}` : null, [user]);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+        if (currentUser) {
+            setUser(currentUser);
+        } else {
+            router.push('/login');
+        }
+    });
+    return () => unsubscribe();
+  }, [router]);
+  
+
   // Load and save data from/to localStorage
   useEffect(() => {
+    if (!RESTAURANT_DATA_KEY) return;
     try {
       const savedData = localStorage.getItem(RESTAURANT_DATA_KEY);
       if (savedData) {
@@ -153,9 +171,10 @@ export default function DashboardPage() {
         setCategories(initialCategories);
         setMenuItems(initialMenuItems);
     }
-  }, [toast]);
+  }, [toast, RESTAURANT_DATA_KEY]);
   
   const saveData = (newCategories: Category[], newMenuItems: MenuItem[]) => {
+      if (!RESTAURANT_DATA_KEY) return;
       try {
         localStorage.setItem(RESTAURANT_DATA_KEY, JSON.stringify({ categories: newCategories, menuItems: newMenuItems }));
       } catch (error) {
@@ -166,9 +185,10 @@ export default function DashboardPage() {
 
 
   useEffect(() => {
-    // This runs only on the client, avoiding hydration errors
-    setMenuUrl(`${window.location.origin}/menu/1`);
-  }, []);
+    if (user) {
+      setMenuUrl(`${window.location.origin}/menu/${user.uid}`);
+    }
+  }, [user]);
 
   const categoryForm = useForm<z.infer<typeof categorySchema>>({
     resolver: zodResolver(categorySchema),
@@ -297,21 +317,18 @@ export default function DashboardPage() {
 
 
   return (
-    <div className="min-h-screen bg-gray-50/50">
-      <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6 py-4">
-        <div className="flex items-center gap-2">
-            <Logo className="h-8 w-8 text-primary"/>
-            <h1 className="text-2xl font-headline font-semibold">Dashboard</h1>
+    <div className="grid gap-8">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-headline font-semibold">Menu Dashboard</h1>
+          <p className="text-muted-foreground">Manage your categories and menu items.</p>
         </div>
-        <div className="ml-auto">
-          <Button onClick={() => setQrDialogOpen(true)} variant="outline">
-            <QrCode className="mr-2 h-4 w-4" />
-            Generate QR Code
-          </Button>
-        </div>
-      </header>
-
-      <main className="p-4 sm:px-6 sm:py-0 grid gap-8">
+        <Button onClick={() => setQrDialogOpen(true)} variant="outline">
+          <QrCode className="mr-2 h-4 w-4" />
+          View QR Code
+        </Button>
+      </div>
+      
         {/* Category Management */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
@@ -427,7 +444,6 @@ export default function DashboardPage() {
             </Table>
           </CardContent>
         </Card>
-      </main>
 
       {/* Category Dialog */}
       <Dialog open={isCategoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
@@ -573,7 +589,6 @@ export default function DashboardPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
     </div>
   );
 }

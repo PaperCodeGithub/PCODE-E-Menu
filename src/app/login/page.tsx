@@ -1,21 +1,77 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Logo } from "@/components/icons";
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import {
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  createUserWithEmailAndPassword,
+  GoogleAuthProvider,
+} from 'firebase/auth';
+import { auth } from '@/lib/firebase';
+import { useToast } from '@/hooks/use-toast';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Logo } from '@/components/icons';
+import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
+function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg role="img" viewBox="0 0 24 24" {...props} xmlns="http://www.w3.org/2000/svg">
+      <title>Google</title>
+      <path d="M12.48 10.92v3.28h7.84c-.24 1.84-.85 3.18-1.73 4.1-1.02 1.02-2.62 1.9-4.73 1.9-4.27 0-7.75-3.5-7.75-7.75s3.48-7.75 7.75-7.75c2.43 0 3.86.95 4.73 1.82l2.73-2.73C18.74 1.94 15.96 0 12.48 0 5.88 0 0 5.88 0 12.48s5.88 12.48 12.48 12.48c7.28 0 12.1-5.14 12.1-12.36 0-.8-.08-1.48-.2-2.16H12.48z" />
+    </svg>
+  );
+}
 
 export default function LoginPage() {
   const router = useRouter();
+  const { toast } = useToast();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    // In a real app, you'd have authentication logic here.
-    // For this prototype, we'll just navigate to the dashboard.
-    router.push("/dashboard");
+  const handleAuthAction = async (action: 'login' | 'signup') => {
+    setLoading(true);
+    try {
+      if (action === 'login') {
+        await signInWithEmailAndPassword(auth, email, password);
+      } else {
+        await createUserWithEmailAndPassword(auth, email, password);
+      }
+      toast({ title: "Success", description: "You're now logged in." });
+      router.push('/dashboard/profile');
+    } catch (error: any) {
+      toast({
+        title: 'Authentication Failed',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    const provider = new GoogleAuthProvider();
+    try {
+      await signInWithPopup(auth, provider);
+      toast({ title: "Success", description: "You're now logged in with Google." });
+      router.push('/dashboard/profile');
+    } catch (error: any) {
+      toast({
+        title: 'Google Sign-In Failed',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -25,26 +81,88 @@ export default function LoginPage() {
           <Link href="/" className="inline-block mx-auto">
             <Logo className="w-12 h-12 text-primary" />
           </Link>
-          <CardTitle className="text-2xl font-headline">Owner Login</CardTitle>
-          <CardDescription>Enter your credentials to access your dashboard.</CardDescription>
+          <CardTitle className="text-2xl font-headline">Welcome</CardTitle>
+          <CardDescription>Login or create an account to manage your menu.</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleLogin} className="grid gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" placeholder="owner@restaurant.com" required />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" placeholder="password" required />
-            </div>
-            <Button type="submit" className="w-full bg-accent text-accent-foreground hover:bg-accent/90">
-              Sign In
-            </Button>
-          </form>
-           <p className="text-center text-sm text-muted-foreground mt-4">
-            Don't have an account? It's a demo, just sign in!
-          </p>
+          <Tabs defaultValue="login">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="login">Login</TabsTrigger>
+              <TabsTrigger value="signup">Sign Up</TabsTrigger>
+            </TabsList>
+            <TabsContent value="login">
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="email-login">Email</Label>
+                  <Input
+                    id="email-login"
+                    type="email"
+                    placeholder="owner@restaurant.com"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={loading}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="password-login">Password</Label>
+                  <Input
+                    id="password-login"
+                    type="password"
+                    placeholder="password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    disabled={loading}
+                  />
+                </div>
+                <Button onClick={() => handleAuthAction('login')} className="w-full" disabled={loading}>
+                  {loading ? 'Signing In...' : 'Sign In'}
+                </Button>
+              </div>
+            </TabsContent>
+            <TabsContent value="signup">
+               <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="email-signup">Email</Label>
+                  <Input
+                    id="email-signup"
+                    type="email"
+                    placeholder="owner@restaurant.com"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={loading}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="password-signup">Password</Label>
+                  <Input
+                    id="password-signup"
+                    type="password"
+                    placeholder="password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    disabled={loading}
+                  />
+                </div>
+                <Button onClick={() => handleAuthAction('signup')} className="w-full" disabled={loading}>
+                  {loading ? 'Creating Account...' : 'Create Account'}
+                </Button>
+              </div>
+            </TabsContent>
+          </Tabs>
+
+          <div className="relative my-4">
+            <Separator />
+            <span className="absolute left-1/2 -translate-x-1/2 top-[-10px] bg-card px-2 text-sm text-muted-foreground">OR</span>
+          </div>
+
+          <Button variant="outline" className="w-full" onClick={handleGoogleSignIn} disabled={loading}>
+            <GoogleIcon className="mr-2 h-5 w-5 fill-foreground" />
+            Continue with Google
+          </Button>
         </CardContent>
       </Card>
     </div>

@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import Image from "next/image";
 import { Plus, Minus, ShoppingBag, Trash2, CheckCircle } from 'lucide-react';
-import type { Category, MenuItem, OrderItem } from '@/types';
+import type { Category, MenuItem, OrderItem, RestaurantProfile } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetTrigger, SheetClose } from '@/components/ui/sheet';
@@ -21,7 +21,6 @@ import { Logo } from "@/components/icons";
 import { Skeleton } from '@/components/ui/skeleton';
 
 // Mock Data as a fallback if nothing is in localStorage
-const MOCK_RESTAURANT_NAME = "The Rustic Spoon";
 const FALLBACK_CATEGORIES: Category[] = [
   { id: "1", name: "Appetizers" },
   { id: "2", name: "Main Courses" },
@@ -35,6 +34,7 @@ const FALLBACK_MENU_ITEMS: MenuItem[] = [
 ];
 
 export default function MenuPage({ params }: { params: { restaurantId: string } }) {
+  const [restaurantProfile, setRestaurantProfile] = useState<RestaurantProfile | null>(null);
   const [menuData, setMenuData] = useState<{categories: Category[], menuItems: MenuItem[]} | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [order, setOrder] = useState<OrderItem[]>([]);
@@ -43,12 +43,18 @@ export default function MenuPage({ params }: { params: { restaurantId: string } 
   useEffect(() => {
     // This code runs only on the client, where localStorage is available.
     try {
-      const savedData = localStorage.getItem(`qr-menu-data-${params.restaurantId}`);
-      if (savedData) {
-        setMenuData(JSON.parse(savedData));
+      const menuSavedData = localStorage.getItem(`qr-menu-data-${params.restaurantId}`);
+      const profileSavedData = localStorage.getItem(`qr-profile-data-${params.restaurantId}`);
+
+      if (menuSavedData) {
+        setMenuData(JSON.parse(menuSavedData));
       } else {
         // Fallback to mock data if nothing is found
         setMenuData({ categories: FALLBACK_CATEGORIES, menuItems: FALLBACK_MENU_ITEMS });
+      }
+
+      if (profileSavedData) {
+        setRestaurantProfile(JSON.parse(profileSavedData));
       }
     } catch (error) {
       console.error("Could not load menu data:", error);
@@ -129,9 +135,13 @@ export default function MenuPage({ params }: { params: { restaurantId: string } 
     <>
       <div className="container mx-auto max-w-4xl py-8 px-4">
         <header className="text-center mb-10">
-          <Logo className="w-16 h-16 mx-auto text-primary" />
-          <h1 className="text-4xl font-bold mt-2 font-headline">{MOCK_RESTAURANT_NAME}</h1>
-          <p className="text-muted-foreground mt-1">Welcome! Scan, browse, and order.</p>
+          {restaurantProfile?.logo ? (
+             <Image src={restaurantProfile.logo} alt={restaurantProfile.name} width={64} height={64} className="w-16 h-16 mx-auto rounded-full object-cover" />
+          ) : (
+            <Logo className="w-16 h-16 mx-auto text-primary" />
+          )}
+          <h1 className="text-4xl font-bold mt-2 font-headline">{restaurantProfile?.name || 'Restaurant Menu'}</h1>
+          <p className="text-muted-foreground mt-1">{restaurantProfile?.location || 'Welcome! Scan, browse, and order.'}</p>
         </header>
 
         <div className="space-y-12">

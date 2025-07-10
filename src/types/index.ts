@@ -15,3 +15,9 @@ export interface MenuItem {
 export interface OrderItem extends MenuItem {
   quantity: number;
 }
+
+export interface RestaurantProfile {
+  name: string;
+  logo: string;
+  location: string;
+}
