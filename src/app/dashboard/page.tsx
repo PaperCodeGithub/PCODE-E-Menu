@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import {
   PlusCircle,
   QrCode,
@@ -11,6 +12,7 @@ import {
   MenuSquare,
   Search,
   Download,
+  Eye,
 } from "lucide-react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -298,15 +300,23 @@ export default function DashboardPage() {
 
   return (
     <div className="grid gap-8">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-headline font-semibold">Menu Dashboard</h1>
           <p className="text-muted-foreground">Manage your categories and menu items.</p>
         </div>
-        <Button onClick={() => setQrDialogOpen(true)} variant="outline">
-          <QrCode className="mr-2 h-4 w-4" />
-          View QR Code
-        </Button>
+        <div className="flex items-center gap-2">
+            <Button asChild variant="outline">
+                <Link href={menuUrl} target="_blank">
+                    <Eye className="mr-2 h-4 w-4" />
+                    View as customer
+                </Link>
+            </Button>
+            <Button onClick={() => setQrDialogOpen(true)} variant="outline">
+                <QrCode className="mr-2 h-4 w-4" />
+                View QR Code
+            </Button>
+        </div>
       </div>
       
         {/* Category Management */}
@@ -572,3 +582,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
