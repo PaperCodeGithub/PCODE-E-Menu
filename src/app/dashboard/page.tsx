@@ -13,6 +13,7 @@ import {
   X,
   FileUp,
   Search,
+  Download,
 } from "lucide-react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -229,6 +230,11 @@ export default function DashboardPage() {
         return nameMatch && categoryMatch;
     });
   }, [menuItems, menuItemsFilter, categoryFilter]);
+  
+  const qrCodeUrl = useMemo(() => {
+      if (!menuUrl) return "";
+      return `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(menuUrl)}`;
+  }, [menuUrl]);
 
 
   return (
@@ -472,9 +478,9 @@ export default function DashboardPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="flex items-center justify-center p-4">
-            {menuUrl ? (
+            {qrCodeUrl ? (
                 <Image
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(menuUrl)}`}
+                    src={qrCodeUrl}
                     alt="Menu QR Code"
                     width={250}
                     height={250}
@@ -484,9 +490,15 @@ export default function DashboardPage() {
                 <div className="w-[250px] h-[250px] bg-gray-200 animate-pulse rounded-lg" />
             )}
           </div>
-          <DialogFooter className="sm:justify-center">
+          <DialogFooter className="sm:justify-start gap-2">
+             <Button asChild variant="ghost" disabled={!qrCodeUrl} className="flex-1">
+                <a href={`${qrCodeUrl}&download=1`} download="menu-qr-code.png">
+                  <Download className="mr-2 h-4 w-4" />
+                  Download
+                </a>
+              </Button>
             <DialogClose asChild>
-              <Button type="button" variant="secondary">
+              <Button type="button" variant="secondary" className="flex-1">
                 Close
               </Button>
             </DialogClose>
