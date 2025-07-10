@@ -28,6 +28,28 @@ import { db } from '@/lib/firebase';
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
+const sampleProfile: RestaurantProfile = {
+  name: 'The Demo Cafe',
+  location: '123 Sample Street, Webville',
+  logo: 'https://placehold.co/128x128.png',
+};
+
+const sampleCategories: Category[] = [
+  { id: 'cat1', name: 'Appetizers' },
+  { id: 'cat2', name: 'Main Courses' },
+  { id: 'cat3', name: 'Desserts' },
+  { id: 'cat4', name: 'Beverages' },
+];
+
+const sampleMenuItems: MenuItem[] = [
+  { id: 'item1', categoryId: 'cat1', name: 'Bruschetta', description: 'Grilled bread with tomatoes, garlic, basil, and olive oil.', price: 8.99, image: 'https://placehold.co/600x400.png' },
+  { id: 'item2', categoryId: 'cat1', name: 'Spinach Dip', description: 'Creamy spinach and artichoke dip served with tortilla chips.', price: 10.50, image: 'https://placehold.co/600x400.png' },
+  { id: 'item3', categoryId: 'cat2', name: 'Margherita Pizza', description: 'Classic pizza with fresh mozzarella, tomatoes, and basil.', price: 14.00, image: 'https://placehold.co/600x400.png' },
+  { id: 'item4', categoryId: 'cat2', name: 'Classic Burger', description: 'Juicy beef patty with lettuce, tomato, and our special sauce.', price: 12.99, image: 'https://placehold.co/600x400.png' },
+  { id: 'item5', categoryId: 'cat3', name: 'Chocolate Lava Cake', description: 'Warm chocolate cake with a gooey molten center.', price: 7.50, image: 'https://placehold.co/600x400.png' },
+  { id: 'item6', categoryId: 'cat4', name: 'Iced Coffee', description: 'Chilled coffee served over ice, with milk and sugar options.', price: 4.50, image: 'https://placehold.co/600x400.png' },
+];
+
 export default function MenuPage({ params }: { params: { restaurantId: string } }) {
   const { toast } = useToast();
   const router = useRouter();
@@ -41,14 +63,24 @@ export default function MenuPage({ params }: { params: { restaurantId: string } 
   const [tableNumber, setTableNumber] = useState("");
   const [customerOrders, setCustomerOrders] = useState<string[]>([]);
   
+  const isDemo = params.restaurantId === 'sample';
+
   useEffect(() => {
+    if (isDemo) return;
     if (typeof window !== 'undefined') {
       const storedOrders = JSON.parse(localStorage.getItem('customerOrders') || '[]');
       setCustomerOrders(storedOrders);
     }
-  }, []);
+  }, [isDemo]);
   
   useEffect(() => {
+    if (isDemo) {
+        setRestaurantProfile(sampleProfile);
+        setMenuData({ categories: sampleCategories, menuItems: sampleMenuItems });
+        setIsLoading(false);
+        return;
+    }
+
     if (!params.restaurantId) {
         setError("No restaurant ID provided.");
         setIsLoading(false);
@@ -82,7 +114,7 @@ export default function MenuPage({ params }: { params: { restaurantId: string } 
     };
     
     fetchData();
-  }, [params.restaurantId]);
+  }, [params.restaurantId, isDemo]);
 
   const handleAddToOrder = (item: MenuItem) => {
     setOrder((prevOrder) => {
@@ -106,6 +138,12 @@ export default function MenuPage({ params }: { params: { restaurantId: string } 
   };
 
   const handlePlaceOrder = async () => {
+    if (isDemo) {
+        toast({ title: "This is a demo!", description: "Ordering is disabled in the demo view." });
+        setTableDialog(false);
+        return;
+    }
+
     if (!tableNumber) {
         toast({ title: "Table number is required.", variant: "destructive" });
         return;

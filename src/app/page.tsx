@@ -18,6 +18,12 @@ export default function Home() {
             <Link href="/login">Get Started</Link>
           </Button>
         </div>
+
+        <div className="mt-6">
+           <Button asChild variant="link" className="text-muted-foreground">
+              <Link href="/menu/sample">View Demo</Link>
+           </Button>
+        </div>
       </div>
       <footer className="absolute bottom-4 text-center text-sm text-muted-foreground">
         Built with modern technology. Instantly accessible.
