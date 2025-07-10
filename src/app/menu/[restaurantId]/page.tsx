@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Image from "next/image";
-import { Plus, Minus, ShoppingBag, Trash2, X, CheckCircle } from 'lucide-react';
+import { Plus, Minus, ShoppingBag, Trash2, CheckCircle } from 'lucide-react';
 import type { Category, MenuItem, OrderItem } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,73 +16,48 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Logo } from "@/components/icons";
+import { Skeleton } from '@/components/ui/skeleton';
 
-// Mock Data - In a real app, this would be fetched based on `params.restaurantId`
+// Mock Data as a fallback if nothing is in localStorage
 const MOCK_RESTAURANT_NAME = "The Rustic Spoon";
-const MOCK_CATEGORIES: Category[] = [
+const FALLBACK_CATEGORIES: Category[] = [
   { id: "1", name: "Appetizers" },
   { id: "2", name: "Main Courses" },
   { id: "3", name: "Desserts" },
   { id: "4", name: "Drinks" },
 ];
-
-const MOCK_MENU_ITEMS: MenuItem[] = [
-  {
-    id: "101",
-    name: "Bruschetta",
-    description: "Crispy toasted bread topped with fresh tomatoes, garlic, basil, and a drizzle of balsamic glaze.",
-    price: 8.99,
-    categoryId: "1",
-    image: "https://placehold.co/600x400.png",
-  },
-  {
-    id: "102",
-    name: "Calamari Fritti",
-    description: "Lightly battered and fried calamari served with a zesty marinara sauce and lemon wedges.",
-    price: 12.50,
-    categoryId: "1",
-    image: "https://placehold.co/600x400.png",
-  },
-  {
-    id: "201",
-    name: "Spaghetti Carbonara",
-    description: "Classic pasta dish with creamy egg sauce, pecorino cheese, savory pancetta, and black pepper.",
-    price: 15.5,
-    categoryId: "2",
-    image: "https://placehold.co/600x400.png",
-  },
-  {
-    id: "202",
-    name: "Margherita Pizza",
-    description: "Traditional pizza with San Marzano tomatoes, fresh mozzarella, basil, salt, and extra-virgin olive oil.",
-    price: 14.00,
-    categoryId: "2",
-    image: "https://placehold.co/600x400.png",
-  },
-  {
-    id: "301",
-    name: "Tiramisu",
-    description: "A rich and creamy dessert of ladyfingers dipped in coffee, layered with mascarpone cheese.",
-    price: 7.5,
-    categoryId: "3",
-    image: "https://placehold.co/600x400.png",
-  },
-  {
-    id: "401",
-    name: "Fresh Lemonade",
-    description: "House-made lemonade, perfectly sweet and tart.",
-    price: 4.00,
-    categoryId: "4",
-    image: "https://placehold.co/600x400.png",
-  },
+const FALLBACK_MENU_ITEMS: MenuItem[] = [
+  { id: "101", name: "Bruschetta", description: "Toasted bread with tomatoes, garlic, and basil.", price: 8.99, categoryId: "1", image: "https://placehold.co/600x400.png" },
+  { id: "201", name: "Spaghetti Carbonara", description: "Pasta with eggs, cheese, pancetta, and pepper.", price: 15.5, categoryId: "2", image: "https://placehold.co/600x400.png" },
+  { id: "301", name: "Tiramisu", description: "Coffee-flavoured Italian dessert.", price: 7.5, categoryId: "3", image: "https://placehold.co/600x400.png" },
 ];
 
 export default function MenuPage({ params }: { params: { restaurantId: string } }) {
+  const [menuData, setMenuData] = useState<{categories: Category[], menuItems: MenuItem[]} | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [order, setOrder] = useState<OrderItem[]>([]);
   const [isOrderPlaced, setOrderPlaced] = useState(false);
+  
+  useEffect(() => {
+    // This code runs only on the client, where localStorage is available.
+    try {
+      const savedData = localStorage.getItem(`qr-menu-data-${params.restaurantId}`);
+      if (savedData) {
+        setMenuData(JSON.parse(savedData));
+      } else {
+        // Fallback to mock data if nothing is found
+        setMenuData({ categories: FALLBACK_CATEGORIES, menuItems: FALLBACK_MENU_ITEMS });
+      }
+    } catch (error) {
+      console.error("Could not load menu data:", error);
+      // In case of error (e.g. localStorage disabled), use fallback data
+      setMenuData({ categories: FALLBACK_CATEGORIES, menuItems: FALLBACK_MENU_ITEMS });
+    } finally {
+        setIsLoading(false);
+    }
+  }, [params.restaurantId]);
 
   const handleAddToOrder = (item: MenuItem) => {
     setOrder((prevOrder) => {
@@ -122,6 +97,33 @@ export default function MenuPage({ params }: { params: { restaurantId: string } 
   const totalItems = useMemo(() => {
     return order.reduce((total, item) => total + item.quantity, 0);
   }, [order]);
+  
+  const categories = menuData?.categories || [];
+  const menuItems = menuData?.menuItems || [];
+
+
+  if (isLoading) {
+    return (
+        <div className="container mx-auto max-w-4xl py-8 px-4">
+            <header className="text-center mb-10">
+                <Skeleton className="w-16 h-16 mx-auto rounded-full" />
+                <Skeleton className="w-64 h-10 mx-auto mt-2" />
+                <Skeleton className="w-48 h-5 mx-auto mt-1" />
+            </header>
+            <div className="space-y-12">
+                {[1, 2].map(i => (
+                    <section key={i}>
+                        <Skeleton className="w-1/3 h-9 mb-6" />
+                        <div className="grid md:grid-cols-2 gap-6">
+                            <Card><Skeleton className="h-48 w-full"/><CardHeader><Skeleton className="h-6 w-3/4 mb-2"/><Skeleton className="h-5 w-1/4"/></CardHeader><CardContent><Skeleton className="h-12 w-full"/></CardContent><div className="p-6 pt-0"><Skeleton className="h-10 w-full"/></div></Card>
+                            <Card><Skeleton className="h-48 w-full"/><CardHeader><Skeleton className="h-6 w-3/4 mb-2"/><Skeleton className="h-5 w-1/4"/></CardHeader><CardContent><Skeleton className="h-12 w-full"/></CardContent><div className="p-6 pt-0"><Skeleton className="h-10 w-full"/></div></Card>
+                        </div>
+                    </section>
+                ))}
+            </div>
+        </div>
+    )
+  }
 
   return (
     <>
@@ -133,8 +135,8 @@ export default function MenuPage({ params }: { params: { restaurantId: string } 
         </header>
 
         <div className="space-y-12">
-          {MOCK_CATEGORIES.map((category) => {
-            const itemsInCategory = MOCK_MENU_ITEMS.filter((item) => item.categoryId === category.id);
+          {categories.map((category) => {
+            const itemsInCategory = menuItems.filter((item) => item.categoryId === category.id);
             if (itemsInCategory.length === 0) return null;
 
             return (
@@ -175,6 +177,11 @@ export default function MenuPage({ params }: { params: { restaurantId: string } 
               </section>
             );
           })}
+           {categories.length === 0 && (
+                <div className="text-center py-10">
+                    <p className="text-muted-foreground">This restaurant hasn't set up their menu yet. Please check back later.</p>
+                </div>
+            )}
         </div>
       </div>
 

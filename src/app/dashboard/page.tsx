@@ -7,18 +7,15 @@ import {
   QrCode,
   Trash2,
   Pencil,
-  UtensilsCrossed,
-  MenuSquare,
   Shapes,
-  X,
-  FileUp,
+  MenuSquare,
   Search,
   Download,
 } from "lucide-react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { v4 as uuidv4 } from "uuid"; // To generate unique IDs. In a real app, the backend would do this.
+import { v4 as uuidv4 } from "uuid";
 
 import type { Category, MenuItem } from "@/types";
 import { Button } from "@/components/ui/button";
@@ -65,7 +62,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Logo } from "@/components/icons";
 
-// Mock Data
+// Default Mock Data for first-time use
 const initialCategories: Category[] = [
   { id: "1", name: "Appetizers" },
   { id: "2", name: "Main Courses" },
@@ -112,10 +109,13 @@ const menuItemSchema = z.object({
   categoryId: z.string().min(1, "You must select a category."),
 });
 
+// A unique key for storing this restaurant's data. In a real app, this would be the restaurant's ID.
+const RESTAURANT_DATA_KEY = "qr-menu-data-1";
+
 export default function DashboardPage() {
   const { toast } = useToast();
-  const [categories, setCategories] = useState<Category[]>(initialCategories);
-  const [menuItems, setMenuItems] = useState<MenuItem[]>(initialMenuItems);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [menuItemsFilter, setMenuItemsFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
 
@@ -132,6 +132,38 @@ export default function DashboardPage() {
   const [menuUrl, setMenuUrl] = useState("");
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const imageInputRef = React.useRef<HTMLInputElement>(null);
+
+  // Load and save data from/to localStorage
+  useEffect(() => {
+    try {
+      const savedData = localStorage.getItem(RESTAURANT_DATA_KEY);
+      if (savedData) {
+        const { categories: savedCategories, menuItems: savedMenuItems } = JSON.parse(savedData);
+        setCategories(savedCategories);
+        setMenuItems(savedMenuItems);
+      } else {
+        // First time load, use initial data and save it
+        setCategories(initialCategories);
+        setMenuItems(initialMenuItems);
+        localStorage.setItem(RESTAURANT_DATA_KEY, JSON.stringify({ categories: initialCategories, menuItems: initialMenuItems }));
+      }
+    } catch (error) {
+        console.error("Failed to access localStorage:", error);
+        toast({ title: "Could not load data", description: "Your browser may not support localStorage or it is disabled.", variant: "destructive" });
+        setCategories(initialCategories);
+        setMenuItems(initialMenuItems);
+    }
+  }, [toast]);
+  
+  const saveData = (newCategories: Category[], newMenuItems: MenuItem[]) => {
+      try {
+        localStorage.setItem(RESTAURANT_DATA_KEY, JSON.stringify({ categories: newCategories, menuItems: newMenuItems }));
+      } catch (error) {
+        console.error("Failed to save to localStorage:", error);
+        toast({ title: "Could not save data", description: "Your changes might not persist.", variant: "destructive" });
+      }
+  };
+
 
   useEffect(() => {
     // This runs only on the client, avoiding hydration errors
@@ -180,54 +212,61 @@ export default function DashboardPage() {
   };
 
   const handleCategorySubmit = (values: z.infer<typeof categorySchema>) => {
+    let updatedCategories;
     if (editingCategory) {
-      setCategories(
-        categories.map((c) =>
-          c.id === editingCategory.id ? { ...c, ...values } : c
-        )
+      updatedCategories = categories.map((c) =>
+        c.id === editingCategory.id ? { ...c, ...values } : c
       );
       toast({ title: "Category Updated", description: `"${values.name}" has been updated.` });
     } else {
       const newCategory = { id: uuidv4(), ...values };
-      setCategories([...categories, newCategory]);
+      updatedCategories = [...categories, newCategory];
       toast({ title: "Category Added", description: `"${values.name}" has been created.` });
     }
+    setCategories(updatedCategories);
+    saveData(updatedCategories, menuItems);
     setCategoryDialogOpen(false);
   };
 
   const handleMenuItemSubmit = (values: z.infer<typeof menuItemSchema>) => {
     const image = imagePreview || "https://placehold.co/600x400.png";
+    let updatedMenuItems;
     if (editingMenuItem) {
-      setMenuItems(
-        menuItems.map((item) =>
-          item.id === editingMenuItem.id ? { ...item, ...values, image } : item
-        )
+      updatedMenuItems = menuItems.map((item) =>
+        item.id === editingMenuItem.id ? { ...item, ...values, image } : item
       );
       toast({ title: "Menu Item Updated", description: `"${values.name}" has been updated.` });
     } else {
       const newItem: MenuItem = { id: uuidv4(), ...values, image };
-      setMenuItems([...menuItems, newItem]);
+      updatedMenuItems = [...menuItems, newItem];
        toast({ title: "Menu Item Added", description: `"${values.name}" has been created.` });
     }
+    setMenuItems(updatedMenuItems);
+    saveData(categories, updatedMenuItems);
     setMenuItemDialogOpen(false);
     setImagePreview(null);
   };
 
   const handleDelete = () => {
     if (!itemToDelete) return;
+    
+    let updatedCategories = [...categories];
+    let updatedMenuItems = [...menuItems];
 
     if (itemToDelete.type === "category") {
-      // Also delete menu items in this category
       const categoryName = categories.find(c => c.id === itemToDelete.id)?.name;
-      setMenuItems(menuItems.filter((item) => item.categoryId !== itemToDelete.id));
-      setCategories(categories.filter((c) => c.id !== itemToDelete.id));
+      updatedMenuItems = menuItems.filter((item) => item.categoryId !== itemToDelete.id);
+      updatedCategories = categories.filter((c) => c.id !== itemToDelete.id);
       toast({ title: "Category Deleted", description: `"${categoryName}" and its items were deleted.`, variant: "destructive" });
 
     } else if (itemToDelete.type === "menuItem") {
       const itemName = menuItems.find(i => i.id === itemToDelete.id)?.name;
-      setMenuItems(menuItems.filter((item) => item.id !== itemToDelete.id));
+      updatedMenuItems = menuItems.filter((item) => item.id !== itemToDelete.id);
       toast({ title: "Menu Item Deleted", description: `"${itemName}" was deleted.`, variant: "destructive" });
     }
+    setCategories(updatedCategories);
+    setMenuItems(updatedMenuItems);
+    saveData(updatedCategories, updatedMenuItems);
     setDeleteDialogOpen(false);
     setItemToDelete(null);
   };
