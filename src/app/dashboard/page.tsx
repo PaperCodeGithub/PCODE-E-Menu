@@ -161,11 +161,9 @@ export default function DashboardPage() {
         const dataToSave = {
             categories: currentCategories,
             menuItems: currentMenuItems,
-            // Include a timestamp to ensure the document has some data if both are empty
             updatedAt: new Date(), 
         };
 
-        // Use setDoc with merge to create or update the document.
         await setDoc(menuDocRef, dataToSave, { merge: true });
 
       } catch (error) {
@@ -256,16 +254,20 @@ export default function DashboardPage() {
 
     setIsSaving(true);
     let imageUrl = editingMenuItem?.image || "https://placehold.co/600x400.png";
+    console.log("Initial imageUrl:", imageUrl);
+    console.log("imagePreview state:", imagePreview ? imagePreview.substring(0, 50) + '...' : 'null');
+
 
     try {
       // If there is a new image (it will be a data URI), upload it to storage.
       if (imagePreview && imagePreview.startsWith('data:')) {
+        console.log("Attempting to upload new image to Firebase Storage...");
         const imageRef = ref(storage, `menuItems/${user.uid}/${uuidv4()}`);
         const uploadResult = await uploadString(imageRef, imagePreview, 'data_url');
         imageUrl = await getDownloadURL(uploadResult.ref);
-      } else if (imagePreview) {
-        // It's an existing URL, keep it.
-        imageUrl = imagePreview;
+        console.log("Image uploaded successfully. New URL:", imageUrl);
+      } else {
+         console.log("No new image to upload. Using existing URL:", imageUrl);
       }
       
       let updatedMenuItems;
@@ -292,8 +294,8 @@ export default function DashboardPage() {
       setMenuItemDialogOpen(false);
       setImagePreview(null);
     } catch (e) {
-        console.error("Failed during menu item submission:", e);
-        toast({ title: "Save Failed", description: "There was an error saving the menu item.", variant: "destructive" });
+        console.error(">>> DEBUG: Failed during menu item submission:", e);
+        toast({ title: "Save Failed", description: "There was an error saving the menu item. Check the console for details.", variant: "destructive" });
     } finally {
       setIsSaving(false);
     }
