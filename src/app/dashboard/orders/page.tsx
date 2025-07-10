@@ -1,12 +1,12 @@
 // src/app/dashboard/orders/page.tsx
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { onAuthStateChanged, type User } from 'firebase/auth';
-import { collection, query, where, onSnapshot, doc, updateDoc, orderBy } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc, orderBy, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
-import type { Order, OrderStatus } from '@/types';
+import type { Order, OrderStatus, RestaurantProfile } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import {
   Select,
@@ -33,8 +33,11 @@ export default function OrdersPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [profile, setProfile] = useState<RestaurantProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState(0);
+
+  const currencySymbol = useMemo(() => profile?.currency?.symbol || '$', [profile]);
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
@@ -46,6 +49,21 @@ export default function OrdersPage() {
     });
     return () => unsubscribeAuth();
   }, [router]);
+  
+  const getProfileDocument = useCallback((uid: string) => doc(db, 'profiles', uid), []);
+
+  useEffect(() => {
+    if (!user) return;
+    
+    const loadProfile = async () => {
+      const profileDoc = await getDoc(getProfileDocument(user.uid));
+      if (profileDoc.exists()) {
+          setProfile(profileDoc.data() as RestaurantProfile);
+      }
+    }
+    loadProfile();
+  }, [user, getProfileDocument]);
+
 
   useEffect(() => {
     if (!user) return;
@@ -138,7 +156,7 @@ export default function OrdersPage() {
                             </CardDescription>
                         </div>
                         <Badge variant="secondary" className="whitespace-nowrap">
-                            ${order.total.toFixed(2)}
+                            {currencySymbol}{order.total.toFixed(2)}
                         </Badge>
                     </CardHeader>
                     <CardContent className="flex-grow space-y-2">
@@ -195,7 +213,7 @@ export default function OrdersPage() {
                             </CardDescription>
                         </div>
                         <Badge variant="secondary" className="whitespace-nowrap">
-                            ${order.total.toFixed(2)}
+                            {currencySymbol}{order.total.toFixed(2)}
                         </Badge>
                     </CardHeader>
                     <CardContent>

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { onAuthStateChanged, type User } from 'firebase/auth';
@@ -15,10 +15,13 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useRouter } from 'next/navigation';
 import { Progress } from '@/components/ui/progress';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { countries } from '@/lib/currencies';
 
 const profileSchema = z.object({
   name: z.string().min(2, 'Restaurant name must be at least 2 characters.'),
   location: z.string().min(3, 'Location must be at least 3 characters.'),
+  country: z.string().min(1, 'You must select a country.'),
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -38,10 +41,11 @@ export default function ProfilePage() {
     register,
     handleSubmit,
     setValue,
+    control,
     formState: { errors },
   } = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
-    defaultValues: { name: '', location: '' },
+    defaultValues: { name: '', location: '', country: 'United States' },
   });
   
   useEffect(() => {
@@ -62,9 +66,10 @@ export default function ProfilePage() {
         try {
             const profileDoc = await getDoc(getProfileDocument(user.uid));
             if (profileDoc.exists()) {
-                const { name, location, logo } = profileDoc.data();
+                const { name, location, logo, country } = profileDoc.data();
                 setValue('name', name);
                 setValue('location', location);
+                setValue('country', country);
                 if (logo) {
                     setImagePreview(logo);
                 }
@@ -96,9 +101,13 @@ export default function ProfilePage() {
     setLoading(true);
     
     try {
+        const selectedCountry = countries.find(c => c.name === data.country);
+        const currency = selectedCountry ? { code: selectedCountry.currency.code, symbol: selectedCountry.currency.symbol } : { code: 'USD', symbol: '$' };
+
         const profileData = {
             ...data,
             logo: imagePreview,
+            currency: currency,
         };
         await setDoc(getProfileDocument(user.uid), profileData);
         toast({
@@ -173,6 +182,25 @@ export default function ProfilePage() {
               disabled={loading}
             />
             {errors.location && <p className="text-sm text-destructive">{errors.location.message}</p>}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="country">Country</Label>
+             <Controller
+                control={control}
+                name="country"
+                render={({ field }) => (
+                  <Select onValueChange={field.onChange} defaultValue={field.value} disabled={loading}>
+                    <SelectTrigger id="country">
+                      <SelectValue placeholder="Select a country" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {countries.map(c => <SelectItem key={c.name} value={c.name}>{c.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            {errors.country && <p className="text-sm text-destructive">{errors.country.message}</p>}
           </div>
 
           <div className="space-y-2">

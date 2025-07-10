@@ -1,12 +1,12 @@
 // src/app/dashboard/statistics/page.tsx
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { onAuthStateChanged, type User } from 'firebase/auth';
-import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
-import type { Order } from '@/types';
+import type { Order, RestaurantProfile } from '@/types';
 import {
   Card,
   CardContent,
@@ -54,9 +54,12 @@ export default function StatisticsPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [allOrders, setAllOrders] = useState<Order[]>([]);
+  const [profile, setProfile] = useState<RestaurantProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [timeframe, setTimeframe] = useState<Timeframe>('day');
   const [progress, setProgress] = useState(0);
+
+  const currencySymbol = useMemo(() => profile?.currency?.symbol || '$', [profile]);
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
@@ -68,35 +71,57 @@ export default function StatisticsPage() {
     });
     return () => unsubscribeAuth();
   }, [router]);
+  
+  const getProfileDocument = useCallback((uid: string) => doc(db, 'profiles', uid), []);
 
   useEffect(() => {
     if (!user) return;
 
     setLoading(true);
-    const q = query(
-      collection(db, 'orders'),
-      where('restaurantId', '==', user.uid),
-      where('status', '==', 'Served')
-    );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const fetchedOrders = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate()
-      })) as Order[];
-      
-      fetchedOrders.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    const loadData = async () => {
+        try {
+            const profileDocRef = getProfileDocument(user.uid);
+            const ordersQuery = query(
+              collection(db, 'orders'),
+              where('restaurantId', '==', user.uid),
+              where('status', '==', 'Served')
+            );
 
-      setAllOrders(fetchedOrders);
-      setLoading(false);
-    }, (error) => {
-      console.error("Error fetching orders: ", error);
-      setLoading(false);
-    });
+            const profileDoc = await getDoc(profileDocRef);
+            if (profileDoc.exists()) {
+                setProfile(profileDoc.data() as RestaurantProfile);
+            }
 
-    return () => unsubscribe();
-  }, [user]);
+            const unsubscribe = onSnapshot(ordersQuery, (snapshot) => {
+              const fetchedOrders = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data(),
+                createdAt: doc.data().createdAt?.toDate()
+              })) as Order[];
+              
+              fetchedOrders.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+              setAllOrders(fetchedOrders);
+              setLoading(false);
+            }, (error) => {
+              console.error("Error fetching orders: ", error);
+              setLoading(false);
+            });
+
+            return unsubscribe;
+
+        } catch (error) {
+            console.error("Error loading initial data: ", error);
+            setLoading(false);
+        }
+    };
+    
+    const unsubscribePromise = loadData();
+
+    return () => {
+      unsubscribePromise.then(unsubscribe => unsubscribe && unsubscribe());
+    };
+  }, [user, getProfileDocument]);
 
   const filteredOrders = useMemo(() => {
     const now = new Date();
@@ -218,7 +243,7 @@ export default function StatisticsPage() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${stats.totalRevenue.toFixed(2)}</div>
+            <div className="text-2xl font-bold">{currencySymbol}{stats.totalRevenue.toFixed(2)}</div>
             <p className="text-xs text-muted-foreground">Completed orders for the period</p>
           </CardContent>
         </Card>
@@ -238,7 +263,7 @@ export default function StatisticsPage() {
             <BarChart3 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${stats.averageOrderValue.toFixed(2)}</div>
+            <div className="text-2xl font-bold">{currencySymbol}{stats.averageOrderValue.toFixed(2)}</div>
             <p className="text-xs text-muted-foreground">Average revenue per order</p>
           </CardContent>
         </Card>
@@ -258,13 +283,14 @@ export default function StatisticsPage() {
             <BarChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-              <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `$${value}`} />
+              <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${currencySymbol}${value}`} />
               <Tooltip
                 contentStyle={{
                   backgroundColor: 'hsl(var(--background))',
                   border: '1px solid hsl(var(--border))',
                   borderRadius: 'var(--radius)',
                 }}
+                 formatter={(value: number) => [`${currencySymbol}${value.toFixed(2)}`, 'Revenue']}
               />
               <Legend />
               <Bar dataKey="Revenue" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
@@ -292,7 +318,7 @@ export default function StatisticsPage() {
                           <TableRow key={order.id}>
                               <TableCell className="font-medium">#{order.tableNumber}</TableCell>
                               <TableCell>{format(order.createdAt, 'PPp')}</TableCell>
-                              <TableCell className="text-right">${order.total.toFixed(2)}</TableCell>
+                              <TableCell className="text-right">{currencySymbol}{order.total.toFixed(2)}</TableCell>
                           </TableRow>
                       )) : (
                           <TableRow>

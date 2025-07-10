@@ -24,7 +24,7 @@ import { v4 as uuidv4 } from "uuid";
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
-import type { Category, MenuItem } from "@/types";
+import type { Category, MenuItem, RestaurantProfile } from "@/types";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -97,6 +97,7 @@ export default function DashboardPage() {
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [profile, setProfile] = useState<RestaurantProfile | null>(null);
   const [menuItemsFilter, setMenuItemsFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
 
@@ -115,6 +116,9 @@ export default function DashboardPage() {
   const imageInputRef = React.useRef<HTMLInputElement>(null);
 
   const getMenuDocument = useCallback((uid: string) => doc(db, 'menus', uid), []);
+  const getProfileDocument = useCallback((uid: string) => doc(db, 'profiles', uid), []);
+
+  const currencySymbol = useMemo(() => profile?.currency?.symbol || '$', [profile]);
 
   // Auth listener
   useEffect(() => {
@@ -136,16 +140,27 @@ export default function DashboardPage() {
     const loadData = async () => {
         setLoading(true);
         try {
-            const menuDoc = await getDoc(getMenuDocument(user.uid));
+            const menuDocRef = getMenuDocument(user.uid);
+            const profileDocRef = getProfileDocument(user.uid);
+            
+            const [menuDoc, profileDoc] = await Promise.all([
+                getDoc(menuDocRef),
+                getDoc(profileDocRef)
+            ]);
+
             if (menuDoc.exists()) {
                 const data = menuDoc.data();
                 setCategories(data.categories || []);
                 setMenuItems(data.menuItems || []);
             } else {
-                // If no menu exists, set empty arrays
                 setCategories([]);
                 setMenuItems([]);
             }
+
+            if (profileDoc.exists()) {
+                setProfile(profileDoc.data() as RestaurantProfile);
+            }
+
         } catch (error) {
             console.error("Failed to load data from Firestore:", error);
             toast({ title: "Could not load data", description: "There was an error fetching your menu from the database.", variant: "destructive" });
@@ -155,7 +170,7 @@ export default function DashboardPage() {
     };
     
     loadData();
-  }, [user, toast, getMenuDocument]);
+  }, [user, toast, getMenuDocument, getProfileDocument]);
   
   // Save data to Firestore
   const saveData = useCallback(async (newCategories: Category[], newMenuItems: MenuItem[]) => {
@@ -502,7 +517,7 @@ export default function DashboardPage() {
                       <TableCell className="font-medium">{item.name}</TableCell>
                       <TableCell>{categories.find(c => c.id === item.categoryId)?.name || 'N/A'}</TableCell>
                       <TableCell className="hidden md:table-cell max-w-xs truncate">{item.description}</TableCell>
-                      <TableCell className="text-right">${item.price.toFixed(2)}</TableCell>
+                      <TableCell className="text-right">{currencySymbol}{item.price.toFixed(2)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
                           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenMenuItemDialog(item)}>
@@ -618,7 +633,10 @@ export default function DashboardPage() {
             <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="itemPrice">Price</Label>
-                  <Input id="itemPrice" type="number" step="0.01" {...menuItemForm.register("price")} disabled={isSaving} />
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">{currencySymbol}</span>
+                    <Input id="itemPrice" type="number" step="0.01" {...menuItemForm.register("price")} disabled={isSaving} className="pl-7"/>
+                  </div>
                   {menuItemForm.formState.errors.price && <p className="text-sm text-destructive">{menuItemForm.formState.errors.price.message}</p>}
                 </div>
                 <div className="space-y-2">

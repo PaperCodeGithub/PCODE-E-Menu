@@ -22,6 +22,11 @@ export interface RestaurantProfile {
   name: string;
   logo: string;
   location: string;
+  country: string;
+  currency: {
+    code: string;
+    symbol: string;
+  };
 }
 
 export type OrderStatus = 'Received' | 'Ongoing' | 'Finishing' | 'On the Way' | 'Served' | 'Canceled';

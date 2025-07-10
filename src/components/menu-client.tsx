@@ -39,6 +39,8 @@ const sampleProfile: RestaurantProfile = {
   name: 'The Demo Cafe',
   location: '123 Sample Street, Webville',
   logo: 'https://placehold.co/128x128.png',
+  country: 'United States',
+  currency: { code: 'USD', symbol: '$' }
 };
 
 const sampleCategories: Category[] = [
@@ -73,6 +75,8 @@ export function MenuClient({ restaurantId }: { restaurantId: string }) {
   
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
+
+  const currencySymbol = useMemo(() => restaurantProfile?.currency?.symbol || '$', [restaurantProfile]);
 
   const isDemo = restaurantId === 'sample';
 
@@ -326,7 +330,7 @@ export function MenuClient({ restaurantId }: { restaurantId: string }) {
                       )}
                       <CardHeader>
                         <CardTitle className="font-headline">{item.name}</CardTitle>
-                        <CardDescription className="text-base text-muted-foreground pt-1">${item.price.toFixed(2)}</CardDescription>
+                        <CardDescription className="text-base text-muted-foreground pt-1">{currencySymbol}{item.price.toFixed(2)}</CardDescription>
                       </CardHeader>
                       <CardContent className="flex-grow">
                         <p>{item.description}</p>
@@ -377,7 +381,7 @@ export function MenuClient({ restaurantId }: { restaurantId: string }) {
                             <Image src={item.image!} alt="" width={64} height={64} className="rounded-md w-16 h-16 object-cover" data-ai-hint="food meal"/>
                             <div className="flex-grow">
                                 <p className="font-semibold">{item.name}</p>
-                                <p className="text-sm text-muted-foreground">${item.price.toFixed(2)}</p>
+                                <p className="text-sm text-muted-foreground">{currencySymbol}{item.price.toFixed(2)}</p>
                             </div>
                             <div className="flex items-center gap-2">
                                 <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)} aria-label={`Decrease quantity of ${item.name}`}><Minus className="h-4 w-4"/></Button>
@@ -398,7 +402,7 @@ export function MenuClient({ restaurantId }: { restaurantId: string }) {
                 <SheetFooter className="mt-auto border-t -mx-6 px-6 pt-4 space-y-4">
                     <div className="flex justify-between items-center font-bold text-lg">
                         <span>Total:</span>
-                        <span>${orderTotal.toFixed(2)}</span>
+                        <span>{currencySymbol}{orderTotal.toFixed(2)}</span>
                     </div>
                     <SheetClose asChild>
                        <Button className="w-full" size="lg" onClick={() => setTableDialog(true)}>

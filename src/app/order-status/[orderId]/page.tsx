@@ -1,11 +1,11 @@
 // src/app/order-status/[orderId]/page.tsx
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'next/navigation';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { Order, OrderStatus } from '@/types';
+import type { Order, OrderStatus, RestaurantProfile } from '@/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -28,8 +28,11 @@ export default function OrderStatusPage() {
   const orderId = params.orderId as string;
 
   const [order, setOrder] = useState<Order | null>(null);
+  const [profile, setProfile] = useState<RestaurantProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const currencySymbol = useMemo(() => profile?.currency?.symbol || '$', [profile]);
   
   useEffect(() => {
     if (!orderId) {
@@ -39,14 +42,24 @@ export default function OrderStatusPage() {
     }
 
     const orderRef = doc(db, 'orders', orderId);
-    const unsubscribe = onSnapshot(orderRef, (doc) => {
+    const unsubscribe = onSnapshot(orderRef, async (doc) => {
       if (doc.exists()) {
-        const data = doc.data() as Order;
-        setOrder({
+        const data = doc.data() as Omit<Order, 'id' | 'createdAt'> & { createdAt: any };
+        const orderData = {
           ...data,
           id: doc.id,
           createdAt: data.createdAt?.toDate()
-        });
+        } as Order;
+        
+        setOrder(orderData);
+
+        if (orderData.restaurantId && !profile) {
+            const profileRef = doc(db, 'profiles', orderData.restaurantId);
+            const profileDoc = await getDoc(profileRef);
+            if (profileDoc.exists()) {
+                setProfile(profileDoc.data() as RestaurantProfile);
+            }
+        }
       } else {
         setError("Order not found. It may have been deleted.");
       }
@@ -58,7 +71,7 @@ export default function OrderStatusPage() {
     });
 
     return () => unsubscribe();
-  }, [orderId]);
+  }, [orderId, profile]);
 
   const currentStatusInfo = order ? statusMap[order.status] : null;
   const progressPercentage = currentStatusInfo ? (currentStatusInfo.step / TOTAL_STEPS) * 100 : 0;
@@ -136,13 +149,13 @@ export default function OrderStatusPage() {
                     {order.items.map(item => (
                         <li key={item.id} className="flex justify-between">
                             <span>{item.quantity}x {item.name}</span>
-                            <span>${(item.price * item.quantity).toFixed(2)}</span>
+                            <span>{currencySymbol}{(item.price * item.quantity).toFixed(2)}</span>
                         </li>
                     ))}
                 </ul>
                 <div className="flex justify-between font-bold text-lg mt-3 pt-3 border-t">
                     <span>Total:</span>
-                    <span>${order.total.toFixed(2)}</span>
+                    <span>{currencySymbol}{order.total.toFixed(2)}</span>
                 </div>
             </div>
         </CardContent>
