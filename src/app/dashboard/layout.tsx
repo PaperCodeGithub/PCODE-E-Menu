@@ -55,14 +55,20 @@ export default function DashboardLayout({
           const profileDoc = await getDoc(doc(db, 'profiles', user.uid));
           if (profileDoc.exists()) {
             setProfile(profileDoc.data() as RestaurantProfile);
+          } else {
+             // If no profile exists, redirect to create one
+            if (window.location.pathname !== '/dashboard/profile') {
+              router.push('/dashboard/profile');
+            }
           }
         } catch (error) {
             console.error("Failed to fetch profile:", error);
+        } finally {
+            setLoading(false);
         }
       } else {
         router.push('/login');
       }
-      setLoading(false);
     });
 
     return () => unsubscribe();
@@ -97,14 +103,14 @@ export default function DashboardLayout({
         <SidebarHeader>
           <div className="flex items-center gap-2 p-2">
             <Logo className="w-8 h-8 text-primary" />
-            <h1 className="text-xl font-headline font-semibold">{profile?.name || 'QRCodeMenu'}</h1>
+            <h1 className="text-xl font-headline font-semibold">{profile?.name || 'E-Menu'}</h1>
           </div>
         </SidebarHeader>
         <SidebarContent>
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild>
-                <Link href="/dashboard">
+              <SidebarMenuButton asChild disabled={!profile}>
+                <Link href="/dashboard" aria-disabled={!profile} tabIndex={!profile ? -1 : undefined}>
                   <MenuSquare />
                   <span>Menu</span>
                 </Link>

@@ -9,8 +9,11 @@ import {
   createUserWithEmailAndPassword,
   GoogleAuthProvider,
   onAuthStateChanged,
+  type UserCredential
 } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { v4 as uuidv4 } from 'uuid';
+import { auth, db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -49,14 +52,33 @@ export default function LoginPage() {
     return () => unsubscribe();
   }, [router]);
 
+  const setupNewUser = async (userCredential: UserCredential) => {
+    const user = userCredential.user;
+    const menuDocRef = doc(db, 'menus', user.uid);
+    const menuDoc = await getDoc(menuDocRef);
+
+    // Only set up default menu if it doesn't exist
+    if (!menuDoc.exists()) {
+      const defaultCategories = [
+        { id: uuidv4(), name: 'Starters' },
+        { id: uuidv4(), name: 'Main Course' },
+        { id: uuidv4(), name: 'Desserts' },
+        { id: uuidv4(), name: 'Beverages' },
+      ];
+      await setDoc(menuDocRef, { categories: defaultCategories, menuItems: [] });
+    }
+  };
+
 
   const handleAuthAction = async (action: 'login' | 'signup') => {
     setLoading(true);
     try {
+      let userCredential;
       if (action === 'login') {
-        await signInWithEmailAndPassword(auth, email, password);
+        userCredential = await signInWithEmailAndPassword(auth, email, password);
       } else {
-        await createUserWithEmailAndPassword(auth, email, password);
+        userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        await setupNewUser(userCredential);
       }
       toast({ title: "Success", description: "You're now logged in." });
       router.push('/dashboard/profile');
@@ -75,7 +97,8 @@ export default function LoginPage() {
     setLoading(true);
     const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
+      const userCredential = await signInWithPopup(auth, provider);
+      await setupNewUser(userCredential); // This will only run for new users.
       toast({ title: "Success", description: "You're now logged in with Google." });
       router.push('/dashboard/profile');
     } catch (error: any) {
@@ -100,7 +123,7 @@ export default function LoginPage() {
           <Link href="/" className="inline-block mx-auto">
             <Logo className="w-12 h-12 text-primary" />
           </Link>
-          <CardTitle className="text-2xl font-headline">Welcome</CardTitle>
+          <CardTitle className="text-2xl font-headline">Welcome to E-Menu</CardTitle>
           <CardDescription>Login or create an account to manage your menu.</CardDescription>
         </CardHeader>
         <CardContent>

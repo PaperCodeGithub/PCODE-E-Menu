@@ -3,7 +3,7 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 
 export const metadata: Metadata = {
-  title: 'QRCodeMenu',
+  title: 'E-Menu',
   description: 'Instantly create a digital menu for your restaurant.',
 };
 

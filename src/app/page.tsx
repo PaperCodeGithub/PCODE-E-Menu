@@ -8,7 +8,7 @@ export default function Home() {
     <main className="flex min-h-screen flex-col items-center justify-center p-8">
       <div className="flex flex-col items-center justify-center w-full max-w-md text-center">
         <Logo className="w-24 h-24 text-primary" />
-        <h1 className="text-5xl font-bold mt-4 font-headline">QRCodeMenu</h1>
+        <h1 className="text-5xl font-bold mt-4 font-headline">E-Menu</h1>
         <p className="text-muted-foreground mt-2">
           The simplest way to create a digital menu for your restaurant, cafe, or bar.
         </p>
