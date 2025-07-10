@@ -16,7 +16,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
 import { ShoppingBag, Clock } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -94,54 +93,7 @@ export default function OrdersPage() {
 
 
   if (loading) {
-    return (
-      <div className="space-y-8">
-        <div>
-          <Skeleton className="h-8 w-48 mb-2" />
-          <Skeleton className="h-5 w-80" />
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mt-4">
-            {[...Array(3)].map((_, i) => (
-              <Card key={i}>
-                <CardHeader className="flex-row items-start justify-between">
-                    <div>
-                        <Skeleton className="h-6 w-24" />
-                        <Skeleton className="h-4 w-32 mt-2" />
-                    </div>
-                    <Skeleton className="h-6 w-16" />
-                </CardHeader>
-                <CardContent className="space-y-2">
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-4 w-5/6" />
-                </CardContent>
-                <div className="p-6 pt-0">
-                    <Skeleton className="h-10 w-full" />
-                </div>
-              </Card>
-            ))}
-          </div>
-        </div>
-        <div>
-          <Skeleton className="h-8 w-64 mb-2" />
-          <Skeleton className="h-5 w-72" />
-           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mt-4">
-             {[...Array(3)].map((_, i) => (
-               <Card key={i}>
-                 <CardHeader className="flex-row items-start justify-between">
-                     <div>
-                         <Skeleton className="h-6 w-24" />
-                         <Skeleton className="h-4 w-32 mt-2" />
-                     </div>
-                     <Skeleton className="h-6 w-16" />
-                 </CardHeader>
-                 <CardContent>
-                     <Skeleton className="h-6 w-28" />
-                 </CardContent>
-               </Card>
-             ))}
-          </div>
-        </div>
-      </div>
-    );
+    return <div>Loading orders...</div>;
   }
 
   return (

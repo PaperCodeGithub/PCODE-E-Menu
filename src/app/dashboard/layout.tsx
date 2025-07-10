@@ -38,7 +38,6 @@ import {
   SidebarMenuBadge,
 } from '@/components/ui/sidebar';
 import { Logo } from '@/components/icons';
-import { Skeleton } from '@/components/ui/skeleton';
 import type { RestaurantProfile } from '@/types';
 
 export default function DashboardLayout({
@@ -60,16 +59,15 @@ export default function DashboardLayout({
           const profileDoc = await getDoc(doc(db, 'profiles', user.uid));
           if (profileDoc.exists()) {
             setProfile(profileDoc.data() as RestaurantProfile);
-            setLoading(false);
           } else {
              // If no profile exists, redirect to create one
             if (window.location.pathname !== '/dashboard/profile') {
               router.push('/dashboard/profile');
             }
-            setLoading(false);
           }
         } catch (error) {
             console.error("Failed to fetch profile:", error);
+        } finally {
             setLoading(false);
         }
       } else {
@@ -111,34 +109,9 @@ export default function DashboardLayout({
 
   if (loading) {
     return (
-      <div className="flex h-screen w-full">
-        {/* Sidebar Skeleton */}
-        <div className="hidden md:flex flex-col gap-4 border-r p-2 bg-muted/40 w-64">
-          <div className="p-2">
-            <div className="flex items-center gap-2">
-              <Skeleton className="h-8 w-8 rounded-md" />
-              <Skeleton className="h-6 w-24" />
-            </div>
-          </div>
-          <div className="flex flex-col gap-2 px-2">
-            <Skeleton className="h-8 w-full" />
-            <Skeleton className="h-8 w-full" />
-            <Skeleton className="h-8 w-full" />
-            <Skeleton className="h-8 w-full" />
-          </div>
+        <div className="flex items-center justify-center h-screen">
+            <p>Loading...</p>
         </div>
-        {/* Main Content Skeleton */}
-        <div className="flex-1">
-          <header className="flex h-14 items-center gap-4 border-b px-4 sm:px-6">
-            <div className="ml-auto flex items-center gap-4">
-              <Skeleton className="h-8 w-8 rounded-full" />
-            </div>
-          </header>
-          <main className="p-4 sm:p-6">
-            <Skeleton className="h-96 w-full" />
-          </main>
-        </div>
-      </div>
     );
   }
 

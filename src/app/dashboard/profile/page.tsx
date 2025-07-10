@@ -14,7 +14,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useRouter } from 'next/navigation';
-import { Skeleton } from '@/components/ui/skeleton';
 
 const profileSchema = z.object({
   name: z.string().min(2, 'Restaurant name must be at least 2 characters.'),
@@ -116,20 +115,7 @@ export default function ProfilePage() {
   };
   
   if (pageLoading) {
-      return (
-          <Card>
-              <CardHeader>
-                  <Skeleton className="h-8 w-1/2" />
-                  <Skeleton className="h-4 w-3/4 mt-2" />
-              </CardHeader>
-              <CardContent className="space-y-6">
-                  <div className="space-y-2"><Skeleton className="h-4 w-1/4" /><Skeleton className="h-10 w-full" /></div>
-                  <div className="space-y-2"><Skeleton className="h-4 w-1/4" /><Skeleton className="h-10 w-full" /></div>
-                  <div className="space-y-2"><Skeleton className="h-4 w-1/4" /><div className="flex items-center gap-4"><Skeleton className="w-24 h-24 rounded-full" /><Skeleton className="h-10 flex-grow" /></div></div>
-                  <Skeleton className="h-10 w-28" />
-              </CardContent>
-          </Card>
-      )
+      return <div>Loading profile...</div>;
   }
 
   return (

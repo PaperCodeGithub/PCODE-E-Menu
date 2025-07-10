@@ -65,7 +65,6 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
-import { Skeleton } from "@/components/ui/skeleton";
 
 // Zod Schemas for Validation
 const categorySchema = z.object({
@@ -283,79 +282,7 @@ export default function DashboardPage() {
   };
   
   if (loading) {
-    return (
-        <div className="grid gap-8">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div>
-                  <Skeleton className="h-8 w-64" />
-                  <Skeleton className="h-5 w-80 mt-2" />
-                </div>
-                <div className="flex items-center gap-2">
-                    <Skeleton className="h-10 w-40" />
-                    <Skeleton className="h-10 w-40" />
-                </div>
-            </div>
-            {/* Categories Skeleton */}
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <div className="flex items-center gap-3">
-                      <Skeleton className="h-6 w-6 rounded-sm"/>
-                      <Skeleton className="h-7 w-48" />
-                  </div>
-                  <Skeleton className="h-10 w-36" />
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                      <Skeleton className="h-12 w-full" />
-                      <Skeleton className="h-12 w-full" />
-                      <Skeleton className="h-12 w-full" />
-                      <Skeleton className="h-12 w-full" />
-                  </div>
-                </CardContent>
-            </Card>
-
-            {/* Menu Items Skeleton */}
-            <Card>
-                <CardHeader>
-                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                        <div className="flex items-center gap-3 self-start">
-                           <Skeleton className="h-6 w-6 rounded-sm"/>
-                           <Skeleton className="h-7 w-56" />
-                        </div>
-                        <div className="flex w-full sm:w-auto items-center gap-2">
-                           <Skeleton className="h-10 w-full sm:w-48" />
-                           <Skeleton className="h-10 w-full sm:w-44" />
-                           <Skeleton className="h-10 w-28" />
-                        </div>
-                    </div>
-                </CardHeader>
-                <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead><Skeleton className="h-5 w-20" /></TableHead>
-                                <TableHead><Skeleton className="h-5 w-24" /></TableHead>
-                                <TableHead className="hidden md:table-cell"><Skeleton className="h-5 w-32" /></TableHead>
-                                <TableHead className="text-right"><Skeleton className="h-5 w-16 ml-auto" /></TableHead>
-                                <TableHead className="text-right"><Skeleton className="h-5 w-20 ml-auto" /></TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {[...Array(5)].map((_, i) => (
-                                <TableRow key={i}>
-                                    <TableCell><Skeleton className="h-5 w-28" /></TableCell>
-                                    <TableCell><Skeleton className="h-5 w-20" /></TableCell>
-                                    <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-full" /></TableCell>
-                                    <TableCell className="text-right"><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
-                                    <TableCell className="text-right"><div className="flex justify-end gap-1"><Skeleton className="h-8 w-8" /><Skeleton className="h-8 w-8" /></div></TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
-        </div>
-    )
+    return <div>Loading menu...</div>;
   }
 
   return (
@@ -642,5 +569,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    
