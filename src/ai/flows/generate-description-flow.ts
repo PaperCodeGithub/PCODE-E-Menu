@@ -41,6 +41,7 @@ const generateDescriptionFlow = ai.defineFlow(
   },
   async (input) => {
     const {output} = await prompt(input);
-    return output!;
+    // Handle null or undefined output from the model to prevent schema validation errors.
+    return output || "Unable to generate description.";
   }
 );
