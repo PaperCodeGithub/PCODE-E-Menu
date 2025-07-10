@@ -22,7 +22,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { v4 as uuidv4 } from "uuid";
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Category, MenuItem } from "@/types";
 import { Button } from "@/components/ui/button";
@@ -157,10 +157,18 @@ export default function DashboardPage() {
       if (!user) return;
       try {
         const menuDocRef = getMenuDocument(user.uid);
-        await setDoc(menuDocRef, { 
-          categories: currentCategories, 
-          menuItems: currentMenuItems 
-        }, { merge: true });
+        const docSnap = await getDoc(menuDocRef);
+
+        const dataToSave = {
+            categories: currentCategories,
+            menuItems: currentMenuItems,
+        };
+
+        if (docSnap.exists()) {
+            await updateDoc(menuDocRef, dataToSave);
+        } else {
+            await setDoc(menuDocRef, dataToSave);
+        }
       } catch (error) {
         console.error("Failed to save to Firestore:", error);
         toast({ title: "Could not save data", description: "Your changes could not be saved to the database.", variant: "destructive" });
@@ -237,6 +245,15 @@ export default function DashboardPage() {
   };
 
   const handleMenuItemSubmit = async (values: z.infer<typeof menuItemSchema>) => {
+    if (!values.categoryId) {
+        toast({
+            title: "Category Required",
+            description: "Please select a category for the menu item.",
+            variant: "destructive",
+        });
+        return;
+    }
+
     setIsSaving(true);
     const image = imagePreview || "https://placehold.co/600x400.png";
     let updatedMenuItems;
