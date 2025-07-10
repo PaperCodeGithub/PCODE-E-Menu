@@ -98,7 +98,7 @@ export function MenuClient({ restaurantId }: { restaurantId: string }) {
               getDoc(profileDocRef),
               getDoc(menuDocRef)
           ]);
-
+          
           if (!profileDoc.exists() && !menuDoc.exists()) {
               setError("This restaurant has not been set up yet.");
           } else {
@@ -152,17 +152,25 @@ export function MenuClient({ restaurantId }: { restaurantId: string }) {
     setPlacingOrder(true);
     try {
         const orderId = uuidv4();
-        const newOrder: Order = {
+        
+        // Clean up items for Firestore
+        const itemsToSave = order.map(item => {
+            const { description, image, ...rest } = item;
+            return rest;
+        });
+        
+        const newOrder: Omit<Order, 'createdAt'> = {
             id: orderId,
             restaurantId: restaurantId,
-            items: order,
+            items: itemsToSave,
             total: orderTotal,
             tableNumber: tableNumber,
             status: "Received",
-            createdAt: serverTimestamp() as any, // Firestore will convert this
         };
+
+        const finalOrder = { ...newOrder, createdAt: serverTimestamp() };
         
-        await setDoc(doc(db, "orders", orderId), newOrder);
+        await setDoc(doc(db, "orders", orderId), finalOrder);
         
         // Save order ID to local storage to track
         const updatedCustomerOrders = [...customerOrders, orderId];
