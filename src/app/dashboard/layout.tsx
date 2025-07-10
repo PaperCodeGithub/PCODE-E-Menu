@@ -1,8 +1,9 @@
+
 "use client";
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { onAuthStateChanged, signOut, type User } from 'firebase/auth';
 import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
@@ -46,6 +47,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<RestaurantProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -115,6 +117,13 @@ export default function DashboardLayout({
     );
   }
 
+  const navItems = [
+    { href: "/dashboard/orders", icon: <ShoppingBag />, label: "Orders", badge: pendingOrderCount > 0 ? pendingOrderCount : null, disabled: !profile },
+    { href: "/dashboard", icon: <MenuSquare />, label: "Menu", disabled: !profile },
+    { href: "/dashboard/statistics", icon: <BarChart3 />, label: "Statistics", disabled: !profile },
+    { href: "/dashboard/profile", icon: <UserIcon />, label: "Profile", disabled: false },
+  ];
+
   return (
     <SidebarProvider>
       <Sidebar>
@@ -126,39 +135,21 @@ export default function DashboardLayout({
         </SidebarHeader>
         <SidebarContent>
           <SidebarMenu>
-             <SidebarMenuItem>
-              <SidebarMenuButton asChild disabled={!profile} className="group-data-[collapsible=icon]:justify-center">
-                <Link href="/dashboard/orders" aria-disabled={!profile} tabIndex={!profile ? -1 : undefined}>
-                  <ShoppingBag />
-                  <span>Orders</span>
-                   {pendingOrderCount > 0 && <SidebarMenuBadge>{pendingOrderCount}</SidebarMenuBadge>}
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild disabled={!profile} className="group-data-[collapsible=icon]:justify-center">
-                <Link href="/dashboard" aria-disabled={!profile} tabIndex={!profile ? -1 : undefined}>
-                  <MenuSquare />
-                  <span>Menu</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-             <SidebarMenuItem>
-              <SidebarMenuButton asChild disabled={!profile} className="group-data-[collapsible=icon]:justify-center">
-                <Link href="/dashboard/statistics" aria-disabled={!profile} tabIndex={!profile ? -1 : undefined}>
-                  <BarChart3 />
-                  <span>Statistics</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild className="group-data-[collapsible=icon]:justify-center">
-                <Link href="/dashboard/profile">
-                  <UserIcon />
-                  <span>Profile</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
+            {navItems.map((item) => (
+              <SidebarMenuItem key={item.href}>
+                <SidebarMenuButton 
+                    asChild 
+                    isActive={item.href === '/dashboard' ? pathname === item.href : pathname.startsWith(item.href)}
+                    disabled={item.disabled} 
+                    className="group-data-[collapsible=icon]:justify-center">
+                  <Link href={item.href} aria-disabled={item.disabled} tabIndex={item.disabled ? -1 : undefined}>
+                    {item.icon}
+                    <span>{item.label}</span>
+                    {item.badge && <SidebarMenuBadge>{item.badge}</SidebarMenuBadge>}
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
           </SidebarMenu>
         </SidebarContent>
       </Sidebar>
