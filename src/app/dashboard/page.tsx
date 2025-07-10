@@ -14,6 +14,7 @@ import {
   Download,
   Eye,
   Loader2,
+  Sparkles,
 } from "lucide-react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -67,6 +68,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { Progress } from "@/components/ui/progress";
+import { generateDescription } from "@/ai/flows/generate-description-flow";
 
 // Zod Schemas for Validation
 const categorySchema = z.object({
@@ -86,6 +88,7 @@ export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
   const [progress, setProgress] = useState(0);
 
   const [categories, setCategories] = useState<Category[]>([]);
@@ -285,6 +288,32 @@ export default function DashboardPage() {
     setItemToDelete(null);
   };
   
+  const handleGenerateDescription = async () => {
+    const itemName = menuItemForm.getValues("name");
+    if (!itemName) {
+      toast({
+        title: "Please enter an item name first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGeneratingDescription(true);
+    try {
+      const description = await generateDescription(itemName);
+      menuItemForm.setValue("description", description, { shouldValidate: true });
+    } catch (error) {
+      console.error("Failed to generate description:", error);
+      toast({
+        title: "AI Generation Failed",
+        description: "Could not generate a description. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingDescription(false);
+    }
+  };
+
   const filteredMenuItems = useMemo(() => {
     return menuItems.filter(item => {
         const nameMatch = item.name.toLowerCase().includes(menuItemsFilter.toLowerCase());
@@ -528,7 +557,19 @@ export default function DashboardPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="itemDescription">Description</Label>
+               <div className="flex items-center justify-between">
+                <Label htmlFor="itemDescription">Description</Label>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm"
+                  onClick={handleGenerateDescription}
+                  disabled={isGeneratingDescription || isSaving}
+                >
+                  {isGeneratingDescription ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                  Generate with AI
+                </Button>
+              </div>
               <Textarea id="itemDescription" {...menuItemForm.register("description")} disabled={isSaving} />
               {menuItemForm.formState.errors.description && <p className="text-sm text-destructive">{menuItemForm.formState.errors.description.message}</p>}
             </div>
