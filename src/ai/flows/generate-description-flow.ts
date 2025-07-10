@@ -10,14 +10,16 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
-const GenerateDescriptionInputSchema = z.string().describe('The name of the menu item.');
+const GenerateDescriptionInputSchema = z.object({
+  dishName: z.string().describe('The name of the menu item.'),
+});
 export type GenerateDescriptionInput = z.infer<typeof GenerateDescriptionInputSchema>;
 
 const GenerateDescriptionOutputSchema = z.string().describe('The generated description for the menu item.');
 export type GenerateDescriptionOutput = z.infer<typeof GenerateDescriptionOutputSchema>;
 
-export async function generateDescription(input: GenerateDescriptionInput): Promise<GenerateDescriptionOutput> {
-  return generateDescriptionFlow(input);
+export async function generateDescription(dishName: string): Promise<GenerateDescriptionOutput> {
+  return generateDescriptionFlow({ dishName });
 }
 
 const prompt = ai.definePrompt({
@@ -26,7 +28,7 @@ const prompt = ai.definePrompt({
   output: {schema: GenerateDescriptionOutputSchema},
   prompt: `You are a world-class chef and food writer. Your task is to write a short, appealing, and delicious-sounding menu description for a dish.
 
-The name of the dish is: {{{prompt}}}
+The name of the dish is: {{{dishName}}}
 
 Generate a single paragraph description. Do not use markdown or any special formatting. Just return the text of the description.`,
 });
