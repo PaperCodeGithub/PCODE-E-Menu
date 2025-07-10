@@ -52,8 +52,7 @@ export default function OrdersPage() {
     setLoading(true);
     const q = query(
       collection(db, 'orders'), 
-      where('restaurantId', '==', user.uid),
-      orderBy('createdAt', 'desc')
+      where('restaurantId', '==', user.uid)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -63,6 +62,14 @@ export default function OrdersPage() {
         // Convert Firestore Timestamp to JS Date for date-fns
         createdAt: doc.data().createdAt?.toDate() 
       })) as Order[];
+      
+      // Sort orders by creation date descending
+      fetchedOrders.sort((a, b) => {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return dateB - dateA;
+      });
+
       setOrders(fetchedOrders);
       setLoading(false);
     }, (error) => {
