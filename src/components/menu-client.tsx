@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import Image from "next/image";
 import Link from 'next/link';
-import { Plus, Minus, ShoppingBag, Trash2, Loader2, Utensils, History } from 'lucide-react';
+import { Plus, Minus, ShoppingBag, Trash2, Loader2, Utensils, History, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { v4 as uuidv4 } from "uuid";
 import type { Category, MenuItem, OrderItem, RestaurantProfile, Order } from '@/types';
@@ -20,6 +20,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from '@/components/ui/badge';
 import { Logo } from "@/components/icons";
 import { Skeleton } from '@/components/ui/skeleton';
@@ -64,6 +71,9 @@ export function MenuClient({ restaurantId }: { restaurantId: string }) {
   const [tableNumber, setTableNumber] = useState("");
   const [customerOrders, setCustomerOrders] = useState<string[]>([]);
   
+  const [searchQuery, setSearchQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+
   const isDemo = restaurantId === 'sample';
 
   useEffect(() => {
@@ -159,8 +169,7 @@ export function MenuClient({ restaurantId }: { restaurantId: string }) {
             return rest;
         });
         
-        const newOrder: Omit<Order, 'createdAt'> = {
-            id: orderId,
+        const newOrder: Omit<Order, 'createdAt' | 'id'> = {
             restaurantId: restaurantId,
             items: itemsToSave,
             total: orderTotal,
@@ -168,7 +177,7 @@ export function MenuClient({ restaurantId }: { restaurantId: string }) {
             status: "Received",
         };
 
-        const finalOrder = { ...newOrder, createdAt: serverTimestamp() };
+        const finalOrder = { id: orderId, ...newOrder, createdAt: serverTimestamp() };
         
         await setDoc(doc(db, "orders", orderId), finalOrder);
         
@@ -198,8 +207,16 @@ export function MenuClient({ restaurantId }: { restaurantId: string }) {
   }, [order]);
   
   const categories = menuData?.categories || [];
-  const menuItems = menuData?.menuItems || [];
-
+  
+  const filteredMenuItems = useMemo(() => {
+    const menuItems = menuData?.menuItems || [];
+    return menuItems.filter(item => {
+        const nameMatch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
+        const categoryMatch = categoryFilter === 'all' || item.categoryId === categoryFilter;
+        return nameMatch && categoryMatch;
+    });
+  }, [menuData, searchQuery, categoryFilter]);
+  
   if (isLoading) {
     return (
         <div className="container mx-auto max-w-4xl py-8 px-4">
@@ -259,13 +276,36 @@ export function MenuClient({ restaurantId }: { restaurantId: string }) {
             </Alert>
         )}
 
+        {/* Search and Filter Controls */}
+        <div className="flex flex-col sm:flex-row gap-4 mb-8 sticky top-4 z-10 bg-background/80 backdrop-blur-sm p-4 rounded-lg border shadow-sm">
+            <div className="relative flex-grow">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Input 
+                    type="search"
+                    placeholder="Search for a dish..."
+                    className="pl-10"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                />
+            </div>
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="sm:w-[200px]">
+                    <SelectValue placeholder="Filter by category" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="all">All Categories</SelectItem>
+                    {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
+            </Select>
+        </div>
+
         <main className="space-y-12">
           {categories.map((category) => {
-            const itemsInCategory = menuItems.filter((item) => item.categoryId === category.id);
+            const itemsInCategory = filteredMenuItems.filter((item) => item.categoryId === category.id);
             if (itemsInCategory.length === 0) return null;
 
             return (
-              <section key={category.id} id={`category-${category.id}`} aria-labelledby={`category-title-${category.id}`} className="scroll-mt-20">
+              <section key={category.id} id={`category-${category.id}`} aria-labelledby={`category-title-${category.id}`} className="scroll-mt-40">
                 <h2 id={`category-title-${category.id}`} className="text-3xl font-bold font-headline border-b-2 border-primary pb-2 mb-6">
                   {category.name}
                 </h2>
@@ -302,9 +342,14 @@ export function MenuClient({ restaurantId }: { restaurantId: string }) {
               </section>
             );
           })}
-           {(categories.length === 0 || menuItems.length === 0) && (
+           {filteredMenuItems.length === 0 && (
                 <div className="text-center py-10">
-                    <p className="text-muted-foreground">This restaurant hasn't set up their menu yet. Please check back later.</p>
+                    <p className="text-muted-foreground">
+                        {menuData?.menuItems.length === 0 
+                            ? "This restaurant hasn't set up their menu yet. Please check back later."
+                            : "No dishes match your search. Try different keywords or filters."
+                        }
+                    </p>
                 </div>
             )}
         </main>
