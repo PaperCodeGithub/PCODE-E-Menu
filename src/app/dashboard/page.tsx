@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import {
   PlusCircle,
@@ -12,6 +12,7 @@ import {
   Shapes,
   X,
   FileUp,
+  Search,
 } from "lucide-react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -114,6 +115,7 @@ export default function DashboardPage() {
   const { toast } = useToast();
   const [categories, setCategories] = useState<Category[]>(initialCategories);
   const [menuItems, setMenuItems] = useState<MenuItem[]>(initialMenuItems);
+  const [menuItemsFilter, setMenuItemsFilter] = useState("");
 
   const [isCategoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [isMenuItemDialogOpen, setMenuItemDialogOpen] = useState(false);
@@ -218,6 +220,10 @@ export default function DashboardPage() {
     setDeleteDialogOpen(false);
     setItemToDelete(null);
   };
+  
+  const filteredMenuItems = useMemo(() => {
+    return menuItems.filter(item => item.name.toLowerCase().includes(menuItemsFilter.toLowerCase()))
+  }, [menuItems, menuItemsFilter]);
 
 
   return (
@@ -272,14 +278,28 @@ export default function DashboardPage() {
 
         {/* Menu Item Management */}
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-             <div className="flex items-center gap-3">
-              <MenuSquare className="h-6 w-6" />
-              <CardTitle className="text-xl font-headline">Manage Menu Items</CardTitle>
+          <CardHeader>
+             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-3 self-start">
+                  <MenuSquare className="h-6 w-6" />
+                  <CardTitle className="text-xl font-headline">Manage Menu Items</CardTitle>
+                </div>
+                <div className="flex w-full sm:w-auto items-center gap-2">
+                    <div className="relative w-full sm:w-64">
+                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input 
+                            type="search" 
+                            placeholder="Search by item name..." 
+                            className="pl-8"
+                            value={menuItemsFilter}
+                            onChange={(e) => setMenuItemsFilter(e.target.value)}
+                        />
+                    </div>
+                    <Button onClick={() => handleOpenMenuItemDialog(null)} disabled={categories.length === 0} className="whitespace-nowrap">
+                      <PlusCircle className="mr-2 h-4 w-4" /> Add Item
+                    </Button>
+                </div>
             </div>
-            <Button onClick={() => handleOpenMenuItemDialog(null)} disabled={categories.length === 0}>
-              <PlusCircle className="mr-2 h-4 w-4" /> Add Menu Item
-            </Button>
           </CardHeader>
           <CardContent>
             <Table>
@@ -293,8 +313,8 @@ export default function DashboardPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {menuItems.length > 0 ? (
-                  menuItems.map((item) => (
+                {filteredMenuItems.length > 0 ? (
+                  filteredMenuItems.map((item) => (
                     <TableRow key={item.id}>
                       <TableCell className="font-medium">{item.name}</TableCell>
                       <TableCell>{categories.find(c => c.id === item.categoryId)?.name || 'N/A'}</TableCell>
@@ -318,7 +338,9 @@ export default function DashboardPage() {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center h-24">
-                      No menu items yet. {categories.length > 0 ? 'Add one to get started!' : 'First, create a category.'}
+                       {menuItems.length > 0 ? 'No items match your search.' : 'No menu items yet.'}
+                       {categories.length === 0 && ' First, create a category.'}
+                       {menuItems.length === 0 && categories.length > 0 && ' Add one to get started!'}
                     </TableCell>
                   </TableRow>
                 )}
