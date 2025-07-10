@@ -14,8 +14,8 @@ export default function Home() {
         </p>
 
         <div className="mt-8 flex flex-col sm:flex-row gap-4 w-full justify-center">
-          <Button asChild className="w-full sm:w-auto" size="lg" variant="outline">
-            <Link href="/login">Restaurant Owner Login</Link>
+          <Button asChild className="w-full sm:w-auto" size="lg">
+            <Link href="/login">Login</Link>
           </Button>
         </div>
       </div>
