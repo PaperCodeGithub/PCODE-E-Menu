@@ -13,11 +13,8 @@ export default function Home() {
           The simplest way to create a digital menu for your restaurant, cafe, or bar.
         </p>
 
-        <div className="mt-8 flex flex-col sm:flex-row gap-4 w-full">
-          <Button asChild className="w-full" size="lg" variant="default">
-            <Link href="/menu/1">View Sample Menu</Link>
-          </Button>
-          <Button asChild className="w-full" size="lg" variant="outline">
+        <div className="mt-8 flex flex-col sm:flex-row gap-4 w-full justify-center">
+          <Button asChild className="w-full sm:w-auto" size="lg" variant="outline">
             <Link href="/login">Restaurant Owner Login</Link>
           </Button>
         </div>
