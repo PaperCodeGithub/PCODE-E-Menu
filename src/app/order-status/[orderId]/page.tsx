@@ -22,12 +22,11 @@ const statusMap: { [key in OrderStatus]: { step: number; label: string; Icon: Re
 };
 const TOTAL_STEPS = 5;
 
-export default function OrderStatusPage({ params }: { params: { orderId: string } }) {
+function OrderStatusClient({ orderId }: { orderId: string }) {
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const orderId = params.orderId;
-
+  
   useEffect(() => {
     if (!orderId) {
       setError("No order ID provided.");
@@ -146,4 +145,8 @@ export default function OrderStatusPage({ params }: { params: { orderId: string 
       </Card>
     </div>
   );
+}
+
+export default function OrderStatusPage({ params }: { params: { orderId: string } }) {
+    return <OrderStatusClient orderId={params.orderId} />;
 }
