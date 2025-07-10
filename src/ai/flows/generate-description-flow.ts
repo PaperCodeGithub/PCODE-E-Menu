@@ -25,7 +25,6 @@ export async function generateDescription(dishName: string): Promise<GenerateDes
 const prompt = ai.definePrompt({
   name: 'generateDescriptionPrompt',
   input: {schema: GenerateDescriptionInputSchema},
-  output: {schema: GenerateDescriptionOutputSchema},
   prompt: `You are a world-class chef and food writer. Your task is to write a short, appealing, and delicious-sounding menu description for a dish.
 
 The name of the dish is: {{{dishName}}}
@@ -40,7 +39,8 @@ const generateDescriptionFlow = ai.defineFlow(
     outputSchema: GenerateDescriptionOutputSchema,
   },
   async (input) => {
-    const {output} = await prompt(input);
+    const response = await prompt(input);
+    const output = response.text;
     // Handle null or undefined output from the model to prevent schema validation errors.
     return output || "Unable to generate description.";
   }
