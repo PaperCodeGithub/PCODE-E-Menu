@@ -13,6 +13,7 @@ import {
   Search,
   Download,
   Eye,
+  Loader2,
 } from "lucide-react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -83,6 +84,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
@@ -198,6 +200,7 @@ export default function DashboardPage() {
   };
 
   const handleCategorySubmit = async (values: z.infer<typeof categorySchema>) => {
+    setIsSaving(true);
     let updatedCategories;
     if (editingCategory) {
       updatedCategories = categories.map((c) =>
@@ -218,9 +221,11 @@ export default function DashboardPage() {
     }
     
     setCategoryDialogOpen(false);
+    setIsSaving(false);
   };
 
   const handleMenuItemSubmit = async (values: z.infer<typeof menuItemSchema>) => {
+    setIsSaving(true);
     const image = imagePreview || "https://placehold.co/600x400.png";
     let updatedMenuItems;
 
@@ -244,6 +249,7 @@ export default function DashboardPage() {
 
     setMenuItemDialogOpen(false);
     setImagePreview(null);
+    setIsSaving(false);
   };
 
   const handleDelete = async () => {
@@ -251,23 +257,25 @@ export default function DashboardPage() {
     
     let updatedCategories = [...categories];
     let updatedMenuItems = [...menuItems];
+    let categoryName = "";
+    let itemName = "";
 
     if (itemToDelete.type === "category") {
-      const categoryName = categories.find(c => c.id === itemToDelete.id)?.name;
+      categoryName = categories.find(c => c.id === itemToDelete.id)?.name || "";
       updatedMenuItems = menuItems.filter((item) => item.categoryId !== itemToDelete.id);
       updatedCategories = categories.filter((c) => c.id !== itemToDelete.id);
-      
-      await saveData(updatedCategories, updatedMenuItems);
-      setCategories(updatedCategories);
-      setMenuItems(updatedMenuItems);
-      toast({ title: "Category Deleted", description: `"${categoryName}" and its items were deleted.`, variant: "destructive" });
-
     } else if (itemToDelete.type === "menuItem") {
-      const itemName = menuItems.find(i => i.id === itemToDelete.id)?.name;
+      itemName = menuItems.find(i => i.id === itemToDelete.id)?.name || "";
       updatedMenuItems = menuItems.filter((item) => item.id !== itemToDelete.id);
-      
-      await saveData(categories, updatedMenuItems);
-      setMenuItems(updatedMenuItems);
+    }
+    
+    await saveData(updatedCategories, updatedMenuItems);
+    setCategories(updatedCategories);
+    setMenuItems(updatedMenuItems);
+
+    if (itemToDelete.type === 'category') {
+      toast({ title: "Category Deleted", description: `"${categoryName}" and its items were deleted.`, variant: "destructive" });
+    } else {
       toast({ title: "Menu Item Deleted", description: `"${itemName}" was deleted.`, variant: "destructive" });
     }
     
@@ -454,12 +462,15 @@ export default function DashboardPage() {
           <form onSubmit={categoryForm.handleSubmit(handleCategorySubmit)} className="space-y-4">
              <div className="space-y-2">
                 <Label htmlFor="categoryName">Category Name</Label>
-                <Input id="categoryName" {...categoryForm.register("name")} />
+                <Input id="categoryName" {...categoryForm.register("name")} disabled={isSaving} />
                 {categoryForm.formState.errors.name && <p className="text-sm text-destructive">{categoryForm.formState.errors.name.message}</p>}
             </div>
             <DialogFooter>
-              <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
-              <Button type="submit">Save Category</Button>
+              <DialogClose asChild><Button type="button" variant="outline" disabled={isSaving}>Cancel</Button></DialogClose>
+              <Button type="submit" disabled={isSaving}>
+                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Save Category
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -479,7 +490,7 @@ export default function DashboardPage() {
           <form onSubmit={menuItemForm.handleSubmit(handleMenuItemSubmit)} className="grid gap-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="itemName">Item Name</Label>
-              <Input id="itemName" {...menuItemForm.register("name")} />
+              <Input id="itemName" {...menuItemForm.register("name")} disabled={isSaving}/>
               {menuItemForm.formState.errors.name && <p className="text-sm text-destructive">{menuItemForm.formState.errors.name.message}</p>}
             </div>
              <div className="space-y-2">
@@ -488,18 +499,18 @@ export default function DashboardPage() {
                 <div className="w-24 h-24 rounded-md border bg-muted flex-shrink-0">
                   {imagePreview && <Image src={imagePreview} alt="Preview" width={96} height={96} className="w-full h-full object-cover rounded-md" />}
                 </div>
-                <Input id="itemImage" type="file" accept="image/*" onChange={handleImageChange} ref={imageInputRef}/>
+                <Input id="itemImage" type="file" accept="image/*" onChange={handleImageChange} ref={imageInputRef} disabled={isSaving}/>
               </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="itemDescription">Description</Label>
-              <Textarea id="itemDescription" {...menuItemForm.register("description")} />
+              <Textarea id="itemDescription" {...menuItemForm.register("description")} disabled={isSaving} />
               {menuItemForm.formState.errors.description && <p className="text-sm text-destructive">{menuItemForm.formState.errors.description.message}</p>}
             </div>
             <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="itemPrice">Price</Label>
-                  <Input id="itemPrice" type="number" step="0.01" {...menuItemForm.register("price")} />
+                  <Input id="itemPrice" type="number" step="0.01" {...menuItemForm.register("price")} disabled={isSaving} />
                   {menuItemForm.formState.errors.price && <p className="text-sm text-destructive">{menuItemForm.formState.errors.price.message}</p>}
                 </div>
                 <div className="space-y-2">
@@ -508,7 +519,7 @@ export default function DashboardPage() {
                     control={menuItemForm.control}
                     name="categoryId"
                     render={({ field }) => (
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isSaving}>
                         <SelectTrigger id="itemCategory">
                           <SelectValue placeholder="Select a category" />
                         </SelectTrigger>
@@ -523,8 +534,11 @@ export default function DashboardPage() {
             </div>
             
             <DialogFooter>
-              <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
-              <Button type="submit">Save Item</Button>
+              <DialogClose asChild><Button type="button" variant="outline" disabled={isSaving}>Cancel</Button></DialogClose>
+              <Button type="submit" disabled={isSaving}>
+                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Save Item
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
