@@ -111,13 +111,32 @@ export default function DashboardLayout({
 
   if (loading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center">
-         <div className="flex items-center space-x-4">
-            <Skeleton className="h-12 w-12 rounded-full" />
-            <div className="space-y-2">
-                <Skeleton className="h-4 w-[250px]" />
-                <Skeleton className="h-4 w-[200px]" />
+      <div className="flex h-screen w-full">
+        {/* Sidebar Skeleton */}
+        <div className="hidden md:flex flex-col gap-4 border-r p-2 bg-muted/40 w-64">
+          <div className="p-2">
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-8 w-8 rounded-md" />
+              <Skeleton className="h-6 w-24" />
             </div>
+          </div>
+          <div className="flex flex-col gap-2 px-2">
+            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-8 w-full" />
+          </div>
+        </div>
+        {/* Main Content Skeleton */}
+        <div className="flex-1">
+          <header className="flex h-14 items-center gap-4 border-b px-4 sm:px-6">
+            <div className="ml-auto flex items-center gap-4">
+              <Skeleton className="h-8 w-8 rounded-full" />
+            </div>
+          </header>
+          <main className="p-4 sm:p-6">
+            <Skeleton className="h-96 w-full" />
+          </main>
         </div>
       </div>
     );

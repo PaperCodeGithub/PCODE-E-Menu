@@ -169,13 +169,60 @@ export default function StatisticsPage() {
   if (loading) {
       return (
           <div className="space-y-8">
-              <Skeleton className="h-10 w-1/3" />
-              <div className="grid gap-4 md:grid-cols-3">
-                  <Skeleton className="h-32 w-full" />
-                  <Skeleton className="h-32 w-full" />
-                  <Skeleton className="h-32 w-full" />
+              <div>
+                  <Skeleton className="h-8 w-48 mb-2" />
+                  <Skeleton className="h-5 w-80" />
               </div>
-              <Skeleton className="h-96 w-full" />
+              <Skeleton className="h-10 w-64" />
+              <div className="grid gap-4 md:grid-cols-3">
+                <Card>
+                  <CardHeader><Skeleton className="h-5 w-3/4" /></CardHeader>
+                  <CardContent><Skeleton className="h-10 w-1/2" /><Skeleton className="h-4 w-full mt-2" /></CardContent>
+                </Card>
+                 <Card>
+                  <CardHeader><Skeleton className="h-5 w-3/4" /></CardHeader>
+                  <CardContent><Skeleton className="h-10 w-1/2" /><Skeleton className="h-4 w-full mt-2" /></CardContent>
+                </Card>
+                 <Card>
+                  <CardHeader><Skeleton className="h-5 w-3/4" /></CardHeader>
+                  <CardContent><Skeleton className="h-10 w-1/2" /><Skeleton className="h-4 w-full mt-2" /></CardContent>
+                </Card>
+              </div>
+               <Card>
+                  <CardHeader>
+                      <Skeleton className="h-7 w-48" />
+                      <Skeleton className="h-5 w-64 mt-2" />
+                  </CardHeader>
+                  <CardContent>
+                      <Skeleton className="h-[350px] w-full" />
+                  </CardContent>
+              </Card>
+               <Card>
+                  <CardHeader>
+                      <Skeleton className="h-7 w-56" />
+                      <Skeleton className="h-5 w-72 mt-2" />
+                  </CardHeader>
+                  <CardContent>
+                       <Table>
+                          <TableHeader>
+                              <TableRow>
+                                  <TableHead><Skeleton className="h-5 w-20" /></TableHead>
+                                  <TableHead><Skeleton className="h-5 w-24" /></TableHead>
+                                  <TableHead className="text-right"><Skeleton className="h-5 w-16 ml-auto" /></TableHead>
+                              </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                              {[...Array(5)].map((_, i) => (
+                                  <TableRow key={i}>
+                                      <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                                      <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                                      <TableCell className="text-right"><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
+                                  </TableRow>
+                              ))}
+                          </TableBody>
+                      </Table>
+                  </CardContent>
+              </Card>
           </div>
       )
   }
