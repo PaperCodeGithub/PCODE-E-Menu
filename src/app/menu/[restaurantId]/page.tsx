@@ -50,11 +50,15 @@ const sampleMenuItems: MenuItem[] = [
   { id: 'item6', categoryId: 'cat4', name: 'Iced Coffee', description: 'Chilled coffee served over ice, with milk and sugar options.', price: 4.50, image: 'https://placehold.co/600x400.png' },
 ];
 
+
 export default function MenuPage({ params }: { params: { restaurantId: string } }) {
+  return <MenuClient restaurantId={params.restaurantId} />;
+}
+
+function MenuClient({ restaurantId }: { restaurantId: string }) {
   const { toast } = useToast();
   const router = useRouter();
-  const restaurantId = params.restaurantId;
-
+  
   const [restaurantProfile, setRestaurantProfile] = useState<RestaurantProfile | null>(null);
   const [menuData, setMenuData] = useState<{categories: Category[], menuItems: MenuItem[]} | null>(null);
   const [isLoading, setIsLoading] = useState(true);
