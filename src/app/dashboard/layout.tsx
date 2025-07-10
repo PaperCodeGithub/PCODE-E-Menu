@@ -59,15 +59,16 @@ export default function DashboardLayout({
           const profileDoc = await getDoc(doc(db, 'profiles', user.uid));
           if (profileDoc.exists()) {
             setProfile(profileDoc.data() as RestaurantProfile);
+            setLoading(false);
           } else {
              // If no profile exists, redirect to create one
             if (window.location.pathname !== '/dashboard/profile') {
               router.push('/dashboard/profile');
             }
+            setLoading(false);
           }
         } catch (error) {
             console.error("Failed to fetch profile:", error);
-        } finally {
             setLoading(false);
         }
       } else {
@@ -93,14 +94,6 @@ export default function DashboardLayout({
         return status !== 'Served' && status !== 'Canceled';
       });
       setPendingOrderCount(activeOrders.length);
-      
-      const newAndNotCanceledOrder = snapshot.docChanges().some(change => 
-        change.type === 'added' && change.doc.data().status !== 'Canceled'
-      );
-
-      if (newAndNotCanceledOrder) {
-          new Audio('/notification.mp3').play().catch(e => console.error("Error playing sound:", e));
-      }
     });
 
     return () => unsubscribe();
