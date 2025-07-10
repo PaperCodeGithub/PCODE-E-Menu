@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import Image from "next/image";
 import {
   PlusCircle,
@@ -16,9 +16,9 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { v4 as uuidv4 } from "uuid";
-
 import { onAuthStateChanged, type User } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
 import type { Category, MenuItem } from "@/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -63,41 +63,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
-
-// Default Mock Data for first-time use
-const initialCategories: Category[] = [
-  { id: "1", name: "Appetizers" },
-  { id: "2", name: "Main Courses" },
-  { id: "3", name: "Desserts" },
-  { id: "4", name: "Drinks" },
-];
-
-const initialMenuItems: MenuItem[] = [
-  {
-    id: "101",
-    name: "Bruschetta",
-    description: "Toasted bread with tomatoes, garlic, and basil.",
-    price: 8.99,
-    categoryId: "1",
-    image: "https://placehold.co/600x400.png",
-  },
-  {
-    id: "102",
-    name: "Spaghetti Carbonara",
-    description: "Pasta with eggs, cheese, pancetta, and pepper.",
-    price: 15.5,
-    categoryId: "2",
-    image: "https://placehold.co/600x400.png",
-  },
-  {
-    id: "103",
-    name: "Tiramisu",
-    description: "Coffee-flavoured Italian dessert.",
-    price: 7.5,
-    categoryId: "3",
-    image: "https://placehold.co/600x400.png",
-  },
-];
+import { Skeleton } from "@/components/ui/skeleton";
 
 // Zod Schemas for Validation
 const categorySchema = z.object({
@@ -111,11 +77,11 @@ const menuItemSchema = z.object({
   categoryId: z.string().min(1, "You must select a category."),
 });
 
-
 export default function DashboardPage() {
   const { toast } = useToast();
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
@@ -136,59 +102,59 @@ export default function DashboardPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const imageInputRef = React.useRef<HTMLInputElement>(null);
 
-  const RESTAURANT_DATA_KEY = useMemo(() => user ? `qr-menu-data-${user.uid}` : null, [user]);
+  const getMenuDocument = useCallback((uid: string) => doc(db, 'menus', uid), []);
 
+  // Auth listener
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-        if (currentUser) {
-            setUser(currentUser);
-        } else {
-            router.push('/login');
-        }
+      if (currentUser) {
+        setUser(currentUser);
+        setMenuUrl(`${window.location.origin}/menu/${currentUser.uid}`);
+      } else {
+        router.push('/login');
+      }
     });
     return () => unsubscribe();
   }, [router]);
-  
 
-  // Load and save data from/to localStorage
+  // Load data from Firestore
   useEffect(() => {
-    if (!RESTAURANT_DATA_KEY) return;
-    try {
-      const savedData = localStorage.getItem(RESTAURANT_DATA_KEY);
-      if (savedData) {
-        const { categories: savedCategories, menuItems: savedMenuItems } = JSON.parse(savedData);
-        setCategories(savedCategories);
-        setMenuItems(savedMenuItems);
-      } else {
-        // First time load, use initial data and save it
-        setCategories(initialCategories);
-        setMenuItems(initialMenuItems);
-        localStorage.setItem(RESTAURANT_DATA_KEY, JSON.stringify({ categories: initialCategories, menuItems: initialMenuItems }));
-      }
-    } catch (error) {
-        console.error("Failed to access localStorage:", error);
-        toast({ title: "Could not load data", description: "Your browser may not support localStorage or it is disabled.", variant: "destructive" });
-        setCategories(initialCategories);
-        setMenuItems(initialMenuItems);
-    }
-  }, [toast, RESTAURANT_DATA_KEY]);
+    if (!user) return;
+    
+    const loadData = async () => {
+        setLoading(true);
+        try {
+            const menuDoc = await getDoc(getMenuDocument(user.uid));
+            if (menuDoc.exists()) {
+                const data = menuDoc.data();
+                setCategories(data.categories || []);
+                setMenuItems(data.menuItems || []);
+            } else {
+                // If no menu exists, set empty arrays
+                setCategories([]);
+                setMenuItems([]);
+            }
+        } catch (error) {
+            console.error("Failed to load data from Firestore:", error);
+            toast({ title: "Could not load data", description: "There was an error fetching your menu from the database.", variant: "destructive" });
+        } finally {
+            setLoading(false);
+        }
+    };
+    
+    loadData();
+  }, [user, toast, getMenuDocument]);
   
-  const saveData = (newCategories: Category[], newMenuItems: MenuItem[]) => {
-      if (!RESTAURANT_DATA_KEY) return;
+  // Save data to Firestore
+  const saveData = useCallback(async (newCategories: Category[], newMenuItems: MenuItem[]) => {
+      if (!user) return;
       try {
-        localStorage.setItem(RESTAURANT_DATA_KEY, JSON.stringify({ categories: newCategories, menuItems: newMenuItems }));
+        await setDoc(getMenuDocument(user.uid), { categories: newCategories, menuItems: newMenuItems });
       } catch (error) {
-        console.error("Failed to save to localStorage:", error);
-        toast({ title: "Could not save data", description: "Your changes might not persist.", variant: "destructive" });
+        console.error("Failed to save to Firestore:", error);
+        toast({ title: "Could not save data", description: "Your changes could not be saved to the database.", variant: "destructive" });
       }
-  };
-
-
-  useEffect(() => {
-    if (user) {
-      setMenuUrl(`${window.location.origin}/menu/${user.uid}`);
-    }
-  }, [user]);
+  }, [user, getMenuDocument, toast]);
 
   const categoryForm = useForm<z.infer<typeof categorySchema>>({
     resolver: zodResolver(categorySchema),
@@ -224,14 +190,13 @@ export default function DashboardPage() {
           }
         : { name: "", description: "", price: 0, categoryId: "" }
     );
-    // Clear the file input
     if (imageInputRef.current) {
       imageInputRef.current.value = "";
     }
     setMenuItemDialogOpen(true);
   };
 
-  const handleCategorySubmit = (values: z.infer<typeof categorySchema>) => {
+  const handleCategorySubmit = async (values: z.infer<typeof categorySchema>) => {
     let updatedCategories;
     if (editingCategory) {
       updatedCategories = categories.map((c) =>
@@ -244,11 +209,11 @@ export default function DashboardPage() {
       toast({ title: "Category Added", description: `"${values.name}" has been created.` });
     }
     setCategories(updatedCategories);
-    saveData(updatedCategories, menuItems);
+    await saveData(updatedCategories, menuItems);
     setCategoryDialogOpen(false);
   };
 
-  const handleMenuItemSubmit = (values: z.infer<typeof menuItemSchema>) => {
+  const handleMenuItemSubmit = async (values: z.infer<typeof menuItemSchema>) => {
     const image = imagePreview || "https://placehold.co/600x400.png";
     let updatedMenuItems;
     if (editingMenuItem) {
@@ -262,12 +227,12 @@ export default function DashboardPage() {
        toast({ title: "Menu Item Added", description: `"${values.name}" has been created.` });
     }
     setMenuItems(updatedMenuItems);
-    saveData(categories, updatedMenuItems);
+    await saveData(categories, updatedMenuItems);
     setMenuItemDialogOpen(false);
     setImagePreview(null);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!itemToDelete) return;
     
     let updatedCategories = [...categories];
@@ -286,7 +251,7 @@ export default function DashboardPage() {
     }
     setCategories(updatedCategories);
     setMenuItems(updatedMenuItems);
-    saveData(updatedCategories, updatedMenuItems);
+    await saveData(updatedCategories, updatedMenuItems);
     setDeleteDialogOpen(false);
     setItemToDelete(null);
   };
@@ -314,7 +279,22 @@ export default function DashboardPage() {
       reader.readAsDataURL(file);
     }
   };
-
+  
+  if (loading) {
+    return (
+        <div className="space-y-8">
+            <Skeleton className="h-10 w-1/3" />
+            <Card>
+                <CardHeader><Skeleton className="h-8 w-1/2" /></CardHeader>
+                <CardContent><Skeleton className="h-24 w-full" /></CardContent>
+            </Card>
+            <Card>
+                <CardHeader><Skeleton className="h-8 w-1/2" /></CardHeader>
+                <CardContent><Skeleton className="h-48 w-full" /></CardContent>
+            </Card>
+        </div>
+    )
+  }
 
   return (
     <div className="grid gap-8">

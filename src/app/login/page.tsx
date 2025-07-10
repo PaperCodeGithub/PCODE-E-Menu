@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -8,6 +8,7 @@ import {
   signInWithPopup,
   createUserWithEmailAndPassword,
   GoogleAuthProvider,
+  onAuthStateChanged,
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
@@ -34,6 +35,20 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [pageLoading, setPageLoading] = useState(true);
+
+  // Redirect if user is already logged in
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        router.replace('/dashboard');
+      } else {
+        setPageLoading(false);
+      }
+    });
+    return () => unsubscribe();
+  }, [router]);
+
 
   const handleAuthAction = async (action: 'login' | 'signup') => {
     setLoading(true);
@@ -73,6 +88,10 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
+  
+  if (pageLoading) {
+    return <div className="flex min-h-screen items-center justify-center p-4">Loading...</div>;
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center p-4">

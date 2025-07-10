@@ -19,50 +19,51 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Logo } from "@/components/icons";
 import { Skeleton } from '@/components/ui/skeleton';
-
-// Mock Data as a fallback if nothing is in localStorage
-const FALLBACK_CATEGORIES: Category[] = [
-  { id: "1", name: "Appetizers" },
-  { id: "2", name: "Main Courses" },
-  { id: "3", name: "Desserts" },
-  { id: "4", name: "Drinks" },
-];
-const FALLBACK_MENU_ITEMS: MenuItem[] = [
-  { id: "101", name: "Bruschetta", description: "Toasted bread with tomatoes, garlic, and basil.", price: 8.99, categoryId: "1", image: "https://placehold.co/600x400.png" },
-  { id: "201", name: "Spaghetti Carbonara", description: "Pasta with eggs, cheese, pancetta, and pepper.", price: 15.5, categoryId: "2", image: "https://placehold.co/600x400.png" },
-  { id: "301", name: "Tiramisu", description: "Coffee-flavoured Italian dessert.", price: 7.5, categoryId: "3", image: "https://placehold.co/600x400.png" },
-];
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 export default function MenuPage({ params }: { params: { restaurantId: string } }) {
   const [restaurantProfile, setRestaurantProfile] = useState<RestaurantProfile | null>(null);
   const [menuData, setMenuData] = useState<{categories: Category[], menuItems: MenuItem[]} | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [order, setOrder] = useState<OrderItem[]>([]);
   const [isOrderPlaced, setOrderPlaced] = useState(false);
   
   useEffect(() => {
-    // This code runs only on the client, where localStorage is available.
-    try {
-      const menuSavedData = localStorage.getItem(`qr-menu-data-${params.restaurantId}`);
-      const profileSavedData = localStorage.getItem(`qr-profile-data-${params.restaurantId}`);
-
-      if (menuSavedData) {
-        setMenuData(JSON.parse(menuSavedData));
-      } else {
-        // Fallback to mock data if nothing is found
-        setMenuData({ categories: FALLBACK_CATEGORIES, menuItems: FALLBACK_MENU_ITEMS });
-      }
-
-      if (profileSavedData) {
-        setRestaurantProfile(JSON.parse(profileSavedData));
-      }
-    } catch (error) {
-      console.error("Could not load menu data:", error);
-      // In case of error (e.g. localStorage disabled), use fallback data
-      setMenuData({ categories: FALLBACK_CATEGORIES, menuItems: FALLBACK_MENU_ITEMS });
-    } finally {
+    if (!params.restaurantId) {
+        setError("No restaurant ID provided.");
         setIsLoading(false);
+        return;
     }
+
+    const fetchData = async () => {
+        setIsLoading(true);
+        try {
+            const profileDocRef = doc(db, 'profiles', params.restaurantId);
+            const menuDocRef = doc(db, 'menus', params.restaurantId);
+
+            const [profileDoc, menuDoc] = await Promise.all([
+                getDoc(profileDocRef),
+                getDoc(menuDocRef)
+            ]);
+
+            if (!profileDoc.exists() && !menuDoc.exists()) {
+                setError("This restaurant has not been set up yet.");
+            } else {
+                setRestaurantProfile(profileDoc.data() as RestaurantProfile || null);
+                setMenuData(menuDoc.data() as {categories: Category[], menuItems: MenuItem[]} || { categories: [], menuItems: []});
+            }
+
+        } catch (err) {
+            console.error("Could not load menu data from Firestore:", err);
+            setError("Could not load menu. Please try again later.");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    
+    fetchData();
   }, [params.restaurantId]);
 
   const handleAddToOrder = (item: MenuItem) => {
@@ -107,7 +108,6 @@ export default function MenuPage({ params }: { params: { restaurantId: string } 
   const categories = menuData?.categories || [];
   const menuItems = menuData?.menuItems || [];
 
-
   if (isLoading) {
     return (
         <div className="container mx-auto max-w-4xl py-8 px-4">
@@ -128,6 +128,19 @@ export default function MenuPage({ params }: { params: { restaurantId: string } 
                 ))}
             </div>
         </div>
+    )
+  }
+
+  if (error) {
+    return (
+         <div className="container mx-auto max-w-4xl py-8 px-4 text-center">
+             <Logo className="w-16 h-16 mx-auto text-destructive" />
+             <h1 className="text-4xl font-bold mt-4 font-headline">Something went wrong</h1>
+             <p className="text-muted-foreground mt-2">{error}</p>
+             <Button asChild className="mt-6">
+                <a href="/">Go Home</a>
+             </Button>
+         </div>
     )
   }
 
@@ -187,7 +200,7 @@ export default function MenuPage({ params }: { params: { restaurantId: string } 
               </section>
             );
           })}
-           {categories.length === 0 && (
+           {(categories.length === 0 || menuItems.length === 0) && (
                 <div className="text-center py-10">
                     <p className="text-muted-foreground">This restaurant hasn't set up their menu yet. Please check back later.</p>
                 </div>

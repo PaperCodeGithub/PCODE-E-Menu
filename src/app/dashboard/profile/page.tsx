@@ -1,18 +1,20 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { onAuthStateChanged, type User } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useRouter } from 'next/navigation';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const profileSchema = z.object({
   name: z.string().min(2, 'Restaurant name must be at least 2 characters.'),
@@ -26,9 +28,10 @@ export default function ProfilePage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
+  const [pageLoading, setPageLoading] = useState(true);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   
-  const PROFILE_DATA_KEY = React.useMemo(() => user ? `qr-profile-data-${user.uid}` : null, [user]);
+  const getProfileDocument = useCallback((uid: string) => doc(db, 'profiles', uid), []);
 
   const {
     register,
@@ -52,19 +55,28 @@ export default function ProfilePage() {
   }, [router]);
 
   useEffect(() => {
-    if (!PROFILE_DATA_KEY) return;
-    try {
-        const savedData = localStorage.getItem(PROFILE_DATA_KEY);
-        if (savedData) {
-            const { name, location, logo } = JSON.parse(savedData);
-            setValue('name', name);
-            setValue('location', location);
-            setImagePreview(logo);
+    if (!user) return;
+    const loadProfile = async () => {
+        setPageLoading(true);
+        try {
+            const profileDoc = await getDoc(getProfileDocument(user.uid));
+            if (profileDoc.exists()) {
+                const { name, location, logo } = profileDoc.data();
+                setValue('name', name);
+                setValue('location', location);
+                if (logo) {
+                    setImagePreview(logo);
+                }
+            }
+        } catch (error) {
+            console.error("Failed to load profile from Firestore:", error);
+            toast({ title: "Error", description: "Could not load your profile.", variant: "destructive" });
+        } finally {
+            setPageLoading(false);
         }
-    } catch (error) {
-        console.error("Failed to load profile from localStorage:", error);
-    }
-  }, [PROFILE_DATA_KEY, setValue]);
+    };
+    loadProfile();
+  }, [user, setValue, getProfileDocument, toast]);
 
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -78,8 +90,8 @@ export default function ProfilePage() {
     }
   };
   
-  const onSubmit = (data: ProfileFormValues) => {
-    if (!PROFILE_DATA_KEY) return;
+  const onSubmit = async (data: ProfileFormValues) => {
+    if (!user) return;
     setLoading(true);
     
     try {
@@ -87,7 +99,7 @@ export default function ProfilePage() {
             ...data,
             logo: imagePreview,
         };
-        localStorage.setItem(PROFILE_DATA_KEY, JSON.stringify(profileData));
+        await setDoc(getProfileDocument(user.uid), profileData);
         toast({
             title: 'Profile Saved!',
             description: 'Your restaurant profile has been updated.',
@@ -102,6 +114,23 @@ export default function ProfilePage() {
         setLoading(false);
     }
   };
+  
+  if (pageLoading) {
+      return (
+          <Card>
+              <CardHeader>
+                  <Skeleton className="h-8 w-1/2" />
+                  <Skeleton className="h-4 w-3/4" />
+              </CardHeader>
+              <CardContent className="space-y-6">
+                  <div className="space-y-2"><Skeleton className="h-4 w-1/4" /><Skeleton className="h-10 w-full" /></div>
+                  <div className="space-y-2"><Skeleton className="h-4 w-1/4" /><Skeleton className="h-10 w-full" /></div>
+                  <div className="space-y-2"><Skeleton className="h-4 w-1/4" /><div className="flex items-center gap-4"><Skeleton className="w-24 h-24 rounded-full" /><Skeleton className="h-10 flex-grow" /></div></div>
+                  <Skeleton className="h-10 w-24" />
+              </CardContent>
+          </Card>
+      )
+  }
 
   return (
     <Card>

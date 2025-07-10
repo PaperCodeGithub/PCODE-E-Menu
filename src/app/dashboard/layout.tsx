@@ -4,7 +4,8 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged, signOut, type User } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
 
 import {
   LogOut,
@@ -34,6 +35,7 @@ import {
 } from '@/components/ui/sidebar';
 import { Logo } from '@/components/icons';
 import { Skeleton } from '@/components/ui/skeleton';
+import type { RestaurantProfile } from '@/types';
 
 export default function DashboardLayout({
   children,
@@ -42,12 +44,21 @@ export default function DashboardLayout({
 }) {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<RestaurantProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         setUser(user);
+        try {
+          const profileDoc = await getDoc(doc(db, 'profiles', user.uid));
+          if (profileDoc.exists()) {
+            setProfile(profileDoc.data() as RestaurantProfile);
+          }
+        } catch (error) {
+            console.error("Failed to fetch profile:", error);
+        }
       } else {
         router.push('/login');
       }
@@ -68,9 +79,14 @@ export default function DashboardLayout({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Skeleton className="h-12 w-12 rounded-full" />
-        <Skeleton className="h-4 w-[250px] ml-4" />
+      <div className="flex h-screen w-full items-center justify-center">
+         <div className="flex items-center space-x-4">
+            <Skeleton className="h-12 w-12 rounded-full" />
+            <div className="space-y-2">
+                <Skeleton className="h-4 w-[250px]" />
+                <Skeleton className="h-4 w-[200px]" />
+            </div>
+        </div>
       </div>
     );
   }
@@ -81,7 +97,7 @@ export default function DashboardLayout({
         <SidebarHeader>
           <div className="flex items-center gap-2 p-2">
             <Logo className="w-8 h-8 text-primary" />
-            <h1 className="text-xl font-headline font-semibold">QRCodeMenu</h1>
+            <h1 className="text-xl font-headline font-semibold">{profile?.name || 'QRCodeMenu'}</h1>
           </div>
         </SidebarHeader>
         <SidebarContent>
@@ -114,7 +130,7 @@ export default function DashboardLayout({
                 <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                   <Avatar className="h-8 w-8">
                     <AvatarImage
-                      src={user?.photoURL || ''}
+                      src={user?.photoURL || profile?.logo || ''}
                       alt={user?.displayName || 'User'}
                     />
                     <AvatarFallback>
