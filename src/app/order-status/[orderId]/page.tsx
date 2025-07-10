@@ -44,12 +44,12 @@ export default function OrderStatusPage() {
     }
 
     const orderRef = doc(db, 'orders', orderId);
-    const unsubscribe = onSnapshot(orderRef, async (doc) => {
-      if (doc.exists()) {
-        const data = doc.data() as Omit<Order, 'id' | 'createdAt'> & { createdAt: any };
+    const unsubscribe = onSnapshot(orderRef, async (orderDoc) => {
+      if (orderDoc.exists()) {
+        const data = orderDoc.data() as Omit<Order, 'id' | 'createdAt'> & { createdAt: any };
         const orderData = {
           ...data,
-          id: doc.id,
+          id: orderDoc.id,
           createdAt: data.createdAt?.toDate()
         } as Order;
         
