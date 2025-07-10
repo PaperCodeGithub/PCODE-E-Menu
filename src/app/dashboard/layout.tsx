@@ -84,16 +84,21 @@ export default function DashboardLayout({
 
     const q = query(
       collection(db, 'orders'),
-      where('restaurantId', '==', user.uid),
-      where('status', '<', 'Served') // More efficient query to get all non-served/canceled orders
+      where('restaurantId', '==', user.uid)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      // We need to filter out 'Canceled' on the client-side
-      const activeOrders = snapshot.docs.filter(doc => doc.data().status !== 'Canceled');
+      const activeOrders = snapshot.docs.filter(doc => {
+        const status = doc.data().status;
+        return status !== 'Served' && status !== 'Canceled';
+      });
       setPendingOrderCount(activeOrders.length);
       
-      if (snapshot.docChanges().some(change => change.type === 'added' && change.doc.data().status !== 'Canceled')) {
+      const newAndNotCanceledOrder = snapshot.docChanges().some(change => 
+        change.type === 'added' && change.doc.data().status !== 'Canceled'
+      );
+
+      if (newAndNotCanceledOrder) {
           new Audio('/notification.mp3').play().catch(e => console.error("Error playing sound:", e));
       }
     });
