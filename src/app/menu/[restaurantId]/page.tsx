@@ -88,7 +88,7 @@ export default function MenuPage({ params }: { params: { restaurantId: string } 
 
   const handleUpdateQuantity = (itemId: string, quantity: number) => {
     setOrder((prevOrder) => {
-      if (quantity === 0) {
+      if (quantity <= 0) {
         return prevOrder.filter((item) => item.id !== itemId);
       }
       return prevOrder.map((item) => (item.id === itemId ? { ...item, quantity } : item));
@@ -151,7 +151,7 @@ export default function MenuPage({ params }: { params: { restaurantId: string } 
                 <Skeleton className="w-64 h-10 mx-auto mt-2" />
                 <Skeleton className="w-48 h-5 mx-auto mt-1" />
             </header>
-            <div className="space-y-12">
+            <main className="space-y-12">
                 {[1, 2].map(i => (
                     <section key={i}>
                         <Skeleton className="w-1/3 h-9 mb-6" />
@@ -161,7 +161,7 @@ export default function MenuPage({ params }: { params: { restaurantId: string } 
                         </div>
                     </section>
                 ))}
-            </div>
+            </main>
         </div>
     )
   }
@@ -184,7 +184,7 @@ export default function MenuPage({ params }: { params: { restaurantId: string } 
       <div className="container mx-auto max-w-4xl py-8 px-4">
         <header className="text-center mb-10">
           {restaurantProfile?.logo ? (
-             <Image src={restaurantProfile.logo} alt={restaurantProfile.name} width={64} height={64} className="w-16 h-16 mx-auto rounded-full object-cover" />
+             <Image src={restaurantProfile.logo} alt={`${restaurantProfile.name} logo`} width={64} height={64} className="w-16 h-16 mx-auto rounded-full object-cover" />
           ) : (
             <Logo className="w-16 h-16 mx-auto text-primary" />
           )}
@@ -192,14 +192,14 @@ export default function MenuPage({ params }: { params: { restaurantId: string } 
           <p className="text-muted-foreground mt-1">{restaurantProfile?.location || 'Welcome! Scan, browse, and order.'}</p>
         </header>
 
-        <div className="space-y-12">
+        <main className="space-y-12">
           {categories.map((category) => {
             const itemsInCategory = menuItems.filter((item) => item.categoryId === category.id);
             if (itemsInCategory.length === 0) return null;
 
             return (
-              <section key={category.id} id={`category-${category.id}`} className="scroll-mt-20">
-                <h2 className="text-3xl font-bold font-headline border-b-2 border-primary pb-2 mb-6">
+              <section key={category.id} id={`category-${category.id}`} aria-labelledby={`category-title-${category.id}`} className="scroll-mt-20">
+                <h2 id={`category-title-${category.id}`} className="text-3xl font-bold font-headline border-b-2 border-primary pb-2 mb-6">
                   {category.name}
                 </h2>
                 <div className="grid md:grid-cols-2 gap-6">
@@ -240,16 +240,16 @@ export default function MenuPage({ params }: { params: { restaurantId: string } 
                     <p className="text-muted-foreground">This restaurant hasn't set up their menu yet. Please check back later.</p>
                 </div>
             )}
-        </div>
+        </main>
       </div>
 
       {order.length > 0 && (
         <Sheet>
             <SheetTrigger asChild>
                 <div className="fixed bottom-6 right-6 z-50">
-                    <Button className="rounded-full h-16 w-16 shadow-2xl animate-in zoom-in-50 duration-300" size="icon">
+                    <Button className="rounded-full h-16 w-16 shadow-2xl animate-in zoom-in-50 duration-300" size="icon" aria-label={`View Order, ${totalItems} items`}>
                         <ShoppingBag className="h-7 w-7" />
-                        <Badge className="absolute -top-1 -right-1" variant="destructive">{totalItems}</Badge>
+                        <Badge className="absolute -top-1 -right-1" variant="destructive" aria-hidden="true">{totalItems}</Badge>
                         <span className="sr-only">View Order</span>
                     </Button>
                 </div>
@@ -262,17 +262,17 @@ export default function MenuPage({ params }: { params: { restaurantId: string } 
                 <div className="flex-grow overflow-y-auto -mx-6 px-6 divide-y">
                     {order.map(item => (
                         <div key={item.id} className="flex items-center gap-4 py-4">
-                            <Image src={item.image!} alt={item.name} width={64} height={64} className="rounded-md w-16 h-16 object-cover" data-ai-hint="food meal"/>
+                            <Image src={item.image!} alt="" width={64} height={64} className="rounded-md w-16 h-16 object-cover" data-ai-hint="food meal"/>
                             <div className="flex-grow">
                                 <p className="font-semibold">{item.name}</p>
                                 <p className="text-sm text-muted-foreground">${item.price.toFixed(2)}</p>
                             </div>
                             <div className="flex items-center gap-2">
-                                <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}><Minus className="h-4 w-4"/></Button>
-                                <span className="w-6 text-center font-bold">{item.quantity}</span>
-                                <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}><Plus className="h-4 w-4"/></Button>
+                                <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)} aria-label={`Decrease quantity of ${item.name}`}><Minus className="h-4 w-4"/></Button>
+                                <span className="w-6 text-center font-bold" aria-label={`Current quantity ${item.quantity}`}>{item.quantity}</span>
+                                <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)} aria-label={`Increase quantity of ${item.name}`}><Plus className="h-4 w-4"/></Button>
                             </div>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleUpdateQuantity(item.id, 0)}>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleUpdateQuantity(item.id, 0)} aria-label={`Remove ${item.name} from order`}>
                                <Trash2 className="h-4 w-4" />
                             </Button>
                         </div>
