@@ -56,31 +56,40 @@ export default function DashboardLayout({
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       if (user) {
         setUser(user);
-        try {
-          const profileDoc = await getDoc(doc(db, 'profiles', user.uid));
-          if (profileDoc.exists()) {
-            setProfile(profileDoc.data() as RestaurantProfile);
-          } else {
-             // If no profile exists, redirect to create one
-            if (window.location.pathname !== '/dashboard/profile') {
-              router.push('/dashboard/profile');
-            }
-          }
-        } catch (error) {
-            console.error("Failed to fetch profile:", error);
-        } finally {
-            setLoading(false);
-        }
       } else {
         router.push('/login');
       }
     });
-
-    return () => unsubscribe();
+  
+    return () => unsubscribeAuth();
   }, [router]);
+
+  useEffect(() => {
+    if (!user) return;
+  
+    setLoading(true);
+    const profileRef = doc(db, 'profiles', user.uid);
+  
+    const unsubscribeProfile = onSnapshot(profileRef, (profileDoc) => {
+      if (profileDoc.exists()) {
+        setProfile(profileDoc.data() as RestaurantProfile);
+      } else {
+        if (pathname !== '/dashboard/profile') {
+          router.push('/dashboard/profile');
+        }
+        setProfile(null);
+      }
+      setLoading(false);
+    }, (error) => {
+      console.error("Failed to fetch profile:", error);
+      setLoading(false);
+    });
+  
+    return () => unsubscribeProfile();
+  }, [user, router, pathname]);
   
   // Listen for pending orders
   useEffect(() => {
