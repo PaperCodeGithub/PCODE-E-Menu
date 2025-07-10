@@ -12,7 +12,8 @@ import {
   MenuSquare,
   User as UserIcon,
   ShoppingBag,
-  Bell
+  Bell,
+  BarChart3
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -147,6 +148,14 @@ export default function DashboardLayout({
                 <Link href="/dashboard" aria-disabled={!profile} tabIndex={!profile ? -1 : undefined}>
                   <MenuSquare />
                   <span>Menu</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+             <SidebarMenuItem>
+              <SidebarMenuButton asChild disabled={!profile}>
+                <Link href="/dashboard/statistics" aria-disabled={!profile} tabIndex={!profile ? -1 : undefined}>
+                  <BarChart3 />
+                  <span>Statistics</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
