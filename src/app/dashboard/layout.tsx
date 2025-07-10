@@ -135,7 +135,7 @@ export default function DashboardLayout({
         <SidebarContent>
           <SidebarMenu>
              <SidebarMenuItem>
-              <SidebarMenuButton asChild disabled={!profile}>
+              <SidebarMenuButton asChild disabled={!profile} className="group-data-[collapsible=icon]:justify-center">
                 <Link href="/dashboard/orders" aria-disabled={!profile} tabIndex={!profile ? -1 : undefined}>
                   <ShoppingBag />
                   <span>Orders</span>
@@ -144,7 +144,7 @@ export default function DashboardLayout({
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild disabled={!profile}>
+              <SidebarMenuButton asChild disabled={!profile} className="group-data-[collapsible=icon]:justify-center">
                 <Link href="/dashboard" aria-disabled={!profile} tabIndex={!profile ? -1 : undefined}>
                   <MenuSquare />
                   <span>Menu</span>
@@ -152,7 +152,7 @@ export default function DashboardLayout({
               </SidebarMenuButton>
             </SidebarMenuItem>
              <SidebarMenuItem>
-              <SidebarMenuButton asChild disabled={!profile}>
+              <SidebarMenuButton asChild disabled={!profile} className="group-data-[collapsible=icon]:justify-center">
                 <Link href="/dashboard/statistics" aria-disabled={!profile} tabIndex={!profile ? -1 : undefined}>
                   <BarChart3 />
                   <span>Statistics</span>
@@ -160,7 +160,7 @@ export default function DashboardLayout({
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild>
+              <SidebarMenuButton asChild className="group-data-[collapsible=icon]:justify-center">
                 <Link href="/dashboard/profile">
                   <UserIcon />
                   <span>Profile</span>
