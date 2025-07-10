@@ -256,18 +256,21 @@ export default function DashboardPage() {
       const categoryName = categories.find(c => c.id === itemToDelete.id)?.name;
       updatedMenuItems = menuItems.filter((item) => item.categoryId !== itemToDelete.id);
       updatedCategories = categories.filter((c) => c.id !== itemToDelete.id);
+      
+      await saveData(updatedCategories, updatedMenuItems);
+      setCategories(updatedCategories);
+      setMenuItems(updatedMenuItems);
       toast({ title: "Category Deleted", description: `"${categoryName}" and its items were deleted.`, variant: "destructive" });
 
     } else if (itemToDelete.type === "menuItem") {
       const itemName = menuItems.find(i => i.id === itemToDelete.id)?.name;
       updatedMenuItems = menuItems.filter((item) => item.id !== itemToDelete.id);
+      
+      await saveData(categories, updatedMenuItems);
+      setMenuItems(updatedMenuItems);
       toast({ title: "Menu Item Deleted", description: `"${itemName}" was deleted.`, variant: "destructive" });
     }
     
-    await saveData(updatedCategories, updatedMenuItems);
-    setCategories(updatedCategories);
-    setMenuItems(updatedMenuItems);
-
     setDeleteDialogOpen(false);
     setItemToDelete(null);
   };
