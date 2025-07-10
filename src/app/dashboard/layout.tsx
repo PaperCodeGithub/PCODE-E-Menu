@@ -4,13 +4,15 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged, signOut, type User } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 
 import {
   LogOut,
   MenuSquare,
   User as UserIcon,
+  ShoppingBag,
+  Bell
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -32,6 +34,7 @@ import {
   SidebarHeader,
   SidebarTrigger,
   SidebarContent,
+  SidebarMenuBadge,
 } from '@/components/ui/sidebar';
 import { Logo } from '@/components/icons';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -46,6 +49,7 @@ export default function DashboardLayout({
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<RestaurantProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pendingOrderCount, setPendingOrderCount] = useState(0);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -73,6 +77,27 @@ export default function DashboardLayout({
 
     return () => unsubscribe();
   }, [router]);
+  
+  // Listen for pending orders
+  useEffect(() => {
+    if (!user) return;
+
+    const q = query(
+      collection(db, 'orders'),
+      where('restaurantId', '==', user.uid),
+      where('status', '!=', 'Served'),
+      where('status', '!=', 'Canceled')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setPendingOrderCount(snapshot.size);
+       if (snapshot.docChanges().some(change => change.type === 'added')) {
+        new Audio('/notification.mp3').play().catch(e => console.error("Error playing sound:", e));
+      }
+    });
+
+    return () => unsubscribe();
+  }, [user]);
 
   const handleLogout = async () => {
     try {
@@ -108,6 +133,15 @@ export default function DashboardLayout({
         </SidebarHeader>
         <SidebarContent>
           <SidebarMenu>
+             <SidebarMenuItem>
+              <SidebarMenuButton asChild disabled={!profile}>
+                <Link href="/dashboard/orders" aria-disabled={!profile} tabIndex={!profile ? -1 : undefined}>
+                  <ShoppingBag />
+                  <span>Orders</span>
+                   {pendingOrderCount > 0 && <SidebarMenuBadge>{pendingOrderCount}</SidebarMenuBadge>}
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton asChild disabled={!profile}>
                 <Link href="/dashboard" aria-disabled={!profile} tabIndex={!profile ? -1 : undefined}>
@@ -131,6 +165,15 @@ export default function DashboardLayout({
         <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background px-4 sm:px-6">
           <SidebarTrigger className="md:hidden" />
           <div className="ml-auto flex items-center gap-4">
+             {pendingOrderCount > 0 && (
+                <div className="relative">
+                  <Bell className="h-5 w-5 animate-pulse" />
+                  <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
+                  </span>
+                </div>
+            )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-8 w-8 rounded-full">

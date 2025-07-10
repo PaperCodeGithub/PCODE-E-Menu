@@ -2,33 +2,41 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import Image from "next/image";
-import { Plus, Minus, ShoppingBag, Trash2, CheckCircle } from 'lucide-react';
-import type { Category, MenuItem, OrderItem, RestaurantProfile } from '@/types';
+import { Plus, Minus, ShoppingBag, Trash2, Loader2, Utensils } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { v4 as uuidv4 } from "uuid";
+import type { Category, MenuItem, OrderItem, RestaurantProfile, Order } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetTrigger, SheetClose } from '@/components/ui/sheet';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from '@/components/ui/badge';
 import { Logo } from "@/components/icons";
 import { Skeleton } from '@/components/ui/skeleton';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { useToast } from "@/hooks/use-toast";
 
 export default function MenuPage({ params }: { params: { restaurantId: string } }) {
+  const { toast } = useToast();
+  const router = useRouter();
   const [restaurantProfile, setRestaurantProfile] = useState<RestaurantProfile | null>(null);
   const [menuData, setMenuData] = useState<{categories: Category[], menuItems: MenuItem[]} | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [order, setOrder] = useState<OrderItem[]>([]);
-  const [isOrderPlaced, setOrderPlaced] = useState(false);
+  const [isPlacingOrder, setPlacingOrder] = useState(false);
+  const [isTableDialog, setTableDialog] = useState(false);
+  const [tableNumber, setTableNumber] = useState("");
   
   useEffect(() => {
     if (!params.restaurantId) {
@@ -87,16 +95,43 @@ export default function MenuPage({ params }: { params: { restaurantId: string } 
     });
   };
 
-  const handlePlaceOrder = () => {
-    // In a real app, this would submit the order to a backend.
-    setOrderPlaced(true);
+  const handlePlaceOrder = async () => {
+    if (!tableNumber) {
+        toast({ title: "Table number is required.", variant: "destructive" });
+        return;
+    }
+    setPlacingOrder(true);
+    try {
+        const orderId = uuidv4();
+        const newOrder: Order = {
+            id: orderId,
+            restaurantId: params.restaurantId,
+            items: order,
+            total: orderTotal,
+            tableNumber: tableNumber,
+            status: "Received",
+            createdAt: serverTimestamp() as any, // Firestore will convert this
+        };
+        
+        await setDoc(doc(db, "orders", orderId), newOrder);
+        
+        // Save order ID to local storage to track
+        const customerOrders = JSON.parse(localStorage.getItem('customerOrders') || '[]');
+        customerOrders.push(orderId);
+        localStorage.setItem('customerOrders', JSON.stringify(customerOrders));
+
+        setTableDialog(false);
+        setOrder([]);
+        router.push(`/order-status/${orderId}`);
+
+    } catch (error) {
+        console.error("Failed to place order:", error);
+        toast({ title: "Order Failed", description: "Could not place your order. Please try again.", variant: "destructive" });
+    } finally {
+        setPlacingOrder(false);
+    }
   };
   
-  const closeConfirmationDialog = () => {
-    setOrderPlaced(false);
-    setOrder([]);
-  };
-
   const orderTotal = useMemo(() => {
     return order.reduce((total, item) => total + item.price * item.quantity, 0);
   }, [order]);
@@ -254,33 +289,46 @@ export default function MenuPage({ params }: { params: { restaurantId: string } 
                         <span>${orderTotal.toFixed(2)}</span>
                     </div>
                     <SheetClose asChild>
-                      <Button className="w-full" size="lg" onClick={handlePlaceOrder}>
-                        Place Order
-                      </Button>
+                       <Button className="w-full" size="lg" onClick={() => setTableDialog(true)}>
+                            Place Order
+                        </Button>
                     </SheetClose>
                 </SheetFooter>
             </SheetContent>
         </Sheet>
       )}
 
-      <AlertDialog open={isOrderPlaced} onOpenChange={closeConfirmationDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
-                <CheckCircle className="h-6 w-6 text-green-600" />
+      <Dialog open={isTableDialog} onOpenChange={setTableDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Enter Your Table Number</DialogTitle>
+            <DialogDescription>
+              Please enter your table number so we know where to bring your order.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="table-number" className="text-right">
+                Table No.
+              </Label>
+              <Input
+                id="table-number"
+                value={tableNumber}
+                onChange={(e) => setTableNumber(e.target.value)}
+                className="col-span-3"
+                placeholder="e.g. 14"
+              />
             </div>
-            <AlertDialogTitle className="text-center">Order Placed!</AlertDialogTitle>
-            <AlertDialogDescription className="text-center">
-              Your order has been sent to the kitchen. Please wait for your table number to be called.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogAction onClick={closeConfirmationDialog} className="w-full">
-              Awesome!
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTableDialog(false)}>Cancel</Button>
+            <Button onClick={handlePlaceOrder} disabled={isPlacingOrder || !tableNumber}>
+              {isPlacingOrder ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Utensils className="mr-2 h-4 w-4" />}
+              Confirm Order
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
