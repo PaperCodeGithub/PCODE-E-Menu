@@ -66,6 +66,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
+import { Progress } from "@/components/ui/progress";
 
 // Zod Schemas for Validation
 const categorySchema = z.object({
@@ -85,6 +86,7 @@ export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [progress, setProgress] = useState(0);
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
@@ -307,8 +309,31 @@ export default function DashboardPage() {
     }
   };
   
+  useEffect(() => {
+    if (loading) {
+      const timer = setInterval(() => {
+        setProgress((oldProgress) => {
+          if (oldProgress >= 95) {
+            return 95;
+          }
+          return oldProgress + 10;
+        });
+      }, 200);
+      return () => {
+        clearInterval(timer);
+      };
+    } else {
+        setProgress(100);
+    }
+  }, [loading]);
+
   if (loading) {
-    return <div>Loading menu...</div>;
+    return (
+        <div className="flex flex-col items-center justify-center h-40">
+            <p className="mb-2">Loading Menu...</p>
+            <Progress value={progress} className="w-1/3" />
+        </div>
+    );
   }
 
   return (

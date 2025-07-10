@@ -46,6 +46,7 @@ import {
     endOfMonth,
     getDaysInMonth
 } from 'date-fns';
+import { Progress } from "@/components/ui/progress";
 
 type Timeframe = 'day' | 'month' | 'year';
 
@@ -55,6 +56,7 @@ export default function StatisticsPage() {
   const [allOrders, setAllOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [timeframe, setTimeframe] = useState<Timeframe>('day');
+  const [progress, setProgress] = useState(0);
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
@@ -165,8 +167,31 @@ export default function StatisticsPage() {
     return allOrders.slice(0, 5);
   }, [allOrders]);
   
+  useEffect(() => {
+    if (loading) {
+      const timer = setInterval(() => {
+        setProgress((oldProgress) => {
+          if (oldProgress >= 95) {
+            return 95;
+          }
+          return oldProgress + 10;
+        });
+      }, 200);
+      return () => {
+        clearInterval(timer);
+      };
+    } else {
+        setProgress(100);
+    }
+  }, [loading]);
+  
   if (loading) {
-      return <div>Loading statistics...</div>;
+      return (
+        <div className="flex flex-col items-center justify-center h-40">
+            <p className="mb-2">Loading Statistics...</p>
+            <Progress value={progress} className="w-1/3" />
+        </div>
+      );
   }
 
   return (

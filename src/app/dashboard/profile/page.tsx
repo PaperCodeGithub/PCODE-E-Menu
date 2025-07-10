@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useRouter } from 'next/navigation';
+import { Progress } from '@/components/ui/progress';
 
 const profileSchema = z.object({
   name: z.string().min(2, 'Restaurant name must be at least 2 characters.'),
@@ -29,6 +30,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
   
   const getProfileDocument = useCallback((uid: string) => doc(db, 'profiles', uid), []);
 
@@ -113,9 +115,32 @@ export default function ProfilePage() {
         setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (pageLoading) {
+      const timer = setInterval(() => {
+        setProgress((oldProgress) => {
+          if (oldProgress >= 95) {
+            return 95;
+          }
+          return oldProgress + 10;
+        });
+      }, 200);
+      return () => {
+        clearInterval(timer);
+      };
+    } else {
+        setProgress(100);
+    }
+  }, [pageLoading]);
   
   if (pageLoading) {
-      return <div>Loading profile...</div>;
+      return (
+        <div className="flex flex-col items-center justify-center h-40">
+            <p className="mb-2">Loading Profile...</p>
+            <Progress value={progress} className="w-1/3" />
+        </div>
+      );
   }
 
   return (
