@@ -40,6 +40,7 @@ import {
 } from '@/components/ui/sidebar';
 import { Logo } from '@/components/icons';
 import type { RestaurantProfile } from '@/types';
+import { Progress } from '@/components/ui/progress';
 
 export default function DashboardLayout({
   children,
@@ -52,6 +53,7 @@ export default function DashboardLayout({
   const [profile, setProfile] = useState<RestaurantProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [pendingOrderCount, setPendingOrderCount] = useState(0);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -101,11 +103,13 @@ export default function DashboardLayout({
   }, [user]);
 
   const handleLogout = async () => {
+    setIsLoggingOut(true);
     try {
       await signOut(auth);
       router.push('/login');
     } catch (error) {
       console.error('Logout failed', error);
+      setIsLoggingOut(false);
     }
   };
 
@@ -116,6 +120,16 @@ export default function DashboardLayout({
         </div>
     );
   }
+  
+  if (isLoggingOut) {
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm">
+        <p className="text-lg font-semibold mb-4">Logging you out...</p>
+        <Progress value={50} className="w-1/4" />
+      </div>
+    );
+  }
+
 
   const navItems = [
     { href: "/dashboard/orders", icon: <ShoppingBag />, label: "Orders", badge: pendingOrderCount > 0 ? pendingOrderCount : null, disabled: !profile },
