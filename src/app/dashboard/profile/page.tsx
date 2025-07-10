@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -6,7 +7,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { onAuthStateChanged, type User } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -17,11 +18,16 @@ import { useRouter } from 'next/navigation';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { countries } from '@/lib/currencies';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Separator } from '@/components/ui/separator';
 
 const profileSchema = z.object({
   name: z.string().min(2, 'Restaurant name must be at least 2 characters.'),
   location: z.string().min(3, 'Location must be at least 3 characters.'),
   country: z.string().min(1, 'You must select a country.'),
+  orderStyle: z.enum(['table', 'name'], {
+    required_error: "You need to select an order style.",
+  }),
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -45,7 +51,7 @@ export default function ProfilePage() {
     formState: { errors },
   } = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
-    defaultValues: { name: '', location: '', country: 'United States' },
+    defaultValues: { name: '', location: '', country: 'United States', orderStyle: 'table' },
   });
   
   useEffect(() => {
@@ -61,27 +67,26 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (!user) return;
-    const loadProfile = async () => {
-        setPageLoading(true);
-        try {
-            const profileDoc = await getDoc(getProfileDocument(user.uid));
-            if (profileDoc.exists()) {
-                const { name, location, logo, country } = profileDoc.data();
-                setValue('name', name);
-                setValue('location', location);
-                setValue('country', country);
-                if (logo) {
-                    setImagePreview(logo);
-                }
+    setPageLoading(true);
+    const unsub = onSnapshot(getProfileDocument(user.uid), (profileDoc) => {
+        if (profileDoc.exists()) {
+            const { name, location, logo, country, orderStyle } = profileDoc.data();
+            setValue('name', name);
+            setValue('location', location);
+            setValue('country', country);
+            setValue('orderStyle', orderStyle || 'table');
+            if (logo) {
+                setImagePreview(logo);
             }
-        } catch (error) {
-            console.error("Failed to load profile from Firestore:", error);
-            toast({ title: "Error", description: "Could not load your profile.", variant: "destructive" });
-        } finally {
-            setPageLoading(false);
         }
-    };
-    loadProfile();
+        setPageLoading(false);
+    }, (error) => {
+        console.error("Failed to load profile from Firestore:", error);
+        toast({ title: "Error", description: "Could not load your profile.", variant: "destructive" });
+        setPageLoading(false);
+    });
+    
+    return () => unsub();
   }, [user, setValue, getProfileDocument, toast]);
 
 
@@ -109,7 +114,7 @@ export default function ProfilePage() {
             logo: imagePreview,
             currency: currency,
         };
-        await setDoc(getProfileDocument(user.uid), profileData);
+        await setDoc(getProfileDocument(user.uid), profileData, { merge: true });
         toast({
             title: 'Profile Saved!',
             description: 'Your restaurant profile has been updated.',
@@ -217,6 +222,37 @@ export default function ProfilePage() {
                 </div>
               <Input id="restaurantLogo" type="file" accept="image/*" onChange={handleImageChange} disabled={loading}/>
             </div>
+          </div>
+          
+          <Separator />
+
+          <div className="space-y-4">
+            <Label className="text-base">Order Style</Label>
+            <CardDescription>Choose how you want to identify customer orders.</CardDescription>
+             <Controller
+                control={control}
+                name="orderStyle"
+                render={({ field }) => (
+                    <RadioGroup
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                        className="grid grid-cols-1 md:grid-cols-2 gap-4"
+                        disabled={loading}
+                    >
+                        <Label htmlFor="style-table" className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
+                            <RadioGroupItem value="table" id="style-table" className="sr-only" />
+                             <span className="text-lg font-semibold mb-2">Table Number</span>
+                             <p className="text-sm text-center text-muted-foreground">Best for restaurants. Customers enter a table number you provide.</p>
+                        </Label>
+                        <Label htmlFor="style-name" className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
+                            <RadioGroupItem value="name" id="style-name" className="sr-only" />
+                            <span className="text-lg font-semibold mb-2">Customer Name</span>
+                             <p className="text-sm text-center text-muted-foreground">Best for stalls, cafes, or bars. Customers enter their name.</p>
+                        </Label>
+                    </RadioGroup>
+                )}
+             />
+             {errors.orderStyle && <p className="text-sm text-destructive">{errors.orderStyle.message}</p>}
           </div>
           
           <Button type="submit" disabled={loading}>

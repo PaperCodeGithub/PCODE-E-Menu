@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { Plus, Minus, ShoppingBag, Trash2, Loader2, Utensils, History, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { v4 as uuidv4 } from "uuid";
-import type { Category, MenuItem, OrderItem, RestaurantProfile, Order } from '@/types';
+import type { Category, MenuItem, OrderItem, RestaurantProfile, Order, OrderStyle } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetTrigger, SheetClose } from '@/components/ui/sheet';
@@ -41,7 +41,8 @@ const sampleProfile: RestaurantProfile = {
   location: '123 Sample Street, Webville',
   logo: 'https://placehold.co/128x128.png',
   country: 'United States',
-  currency: { code: 'USD', symbol: '$' }
+  currency: { code: 'USD', symbol: '$' },
+  orderStyle: 'table',
 };
 
 const sampleCategories: Category[] = [
@@ -70,14 +71,15 @@ export function MenuClient({ restaurantId }: { restaurantId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [order, setOrder] = useState<OrderItem[]>([]);
   const [isPlacingOrder, setPlacingOrder] = useState(false);
-  const [isTableDialog, setTableDialog] = useState(false);
-  const [tableNumber, setTableNumber] = useState("");
+  const [isIdentifierDialog, setIdentifierDialog] = useState(false);
+  const [customerIdentifier, setCustomerIdentifier] = useState("");
   const [customerOrders, setCustomerOrders] = useState<string[]>([]);
   
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
 
   const currencySymbol = useMemo(() => restaurantProfile?.currency?.symbol || '$', [restaurantProfile]);
+  const orderStyle = useMemo(() => restaurantProfile?.orderStyle || 'table', [restaurantProfile]);
 
   const isDemo = restaurantId === 'sample';
 
@@ -163,12 +165,12 @@ export function MenuClient({ restaurantId }: { restaurantId: string }) {
   const handlePlaceOrder = async () => {
     if (isDemo) {
         toast({ title: "This is a demo!", description: "Ordering is disabled in the demo view." });
-        setTableDialog(false);
+        setIdentifierDialog(false);
         return;
     }
 
-    if (!tableNumber) {
-        toast({ title: "Table number is required.", variant: "destructive" });
+    if (!customerIdentifier) {
+        toast({ title: orderStyle === 'table' ? "Table number is required." : "Name is required.", variant: "destructive" });
         return;
     }
     setPlacingOrder(true);
@@ -185,7 +187,7 @@ export function MenuClient({ restaurantId }: { restaurantId: string }) {
             restaurantId: restaurantId,
             items: itemsToSave,
             total: orderTotal,
-            tableNumber: tableNumber,
+            customerIdentifier: customerIdentifier,
             status: "Received",
         };
 
@@ -198,7 +200,7 @@ export function MenuClient({ restaurantId }: { restaurantId: string }) {
         localStorage.setItem('customerOrders', JSON.stringify(updatedCustomerOrders));
         setCustomerOrders(updatedCustomerOrders);
 
-        setTableDialog(false);
+        setIdentifierDialog(false);
         setOrder([]);
         router.push(`/order-status/${orderId}`);
 
@@ -413,7 +415,7 @@ export function MenuClient({ restaurantId }: { restaurantId: string }) {
                         <span>{currencySymbol}{orderTotal.toFixed(2)}</span>
                     </div>
                     <SheetClose asChild>
-                       <Button className="w-full" size="lg" onClick={() => setTableDialog(true)}>
+                       <Button className="w-full" size="lg" onClick={() => setIdentifierDialog(true)}>
                             Place Order
                         </Button>
                     </SheetClose>
@@ -422,31 +424,31 @@ export function MenuClient({ restaurantId }: { restaurantId: string }) {
         </Sheet>
       )}
 
-      <Dialog open={isTableDialog} onOpenChange={setTableDialog}>
+      <Dialog open={isIdentifierDialog} onOpenChange={setIdentifierDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Enter Your Table Number</DialogTitle>
+            <DialogTitle>Enter Your {orderStyle === 'table' ? 'Table Number' : 'Name'}</DialogTitle>
             <DialogDescription>
-              Please enter your table number so we know where to bring your order.
+              Please enter your {orderStyle === 'table' ? 'table number' : 'name'} so we know where to bring your order.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="table-number" className="text-right">
-                Table No.
+              <Label htmlFor="customer-identifier" className="text-right">
+                {orderStyle === 'table' ? 'Table No.' : 'Name'}
               </Label>
               <Input
-                id="table-number"
-                value={tableNumber}
-                onChange={(e) => setTableNumber(e.target.value)}
+                id="customer-identifier"
+                value={customerIdentifier}
+                onChange={(e) => setCustomerIdentifier(e.target.value)}
                 className="col-span-3"
-                placeholder="e.g. 14"
+                placeholder={orderStyle === 'table' ? "e.g. 14" : "e.g. John Doe"}
               />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setTableDialog(false)}>Cancel</Button>
-            <Button onClick={handlePlaceOrder} disabled={isPlacingOrder || !tableNumber}>
+            <Button variant="outline" onClick={() => setIdentifierDialog(false)}>Cancel</Button>
+            <Button onClick={handlePlaceOrder} disabled={isPlacingOrder || !customerIdentifier}>
               {isPlacingOrder ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Utensils className="mr-2 h-4 w-4" />}
               Confirm Order
             </Button>

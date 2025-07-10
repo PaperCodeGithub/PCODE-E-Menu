@@ -1,3 +1,4 @@
+
 import type { Timestamp } from "firebase/firestore";
 
 export interface Category {
@@ -18,6 +19,8 @@ export interface OrderItem extends MenuItem {
   quantity: number;
 }
 
+export type OrderStyle = 'table' | 'name';
+
 export interface RestaurantProfile {
   name: string;
   logo: string;
@@ -27,6 +30,7 @@ export interface RestaurantProfile {
     code: string;
     symbol: string;
   };
+  orderStyle: OrderStyle;
 }
 
 export type OrderStatus = 'Received' | 'Ongoing' | 'Finishing' | 'On the Way' | 'Served' | 'Canceled';
@@ -36,7 +40,7 @@ export interface Order {
     restaurantId: string;
     items: OrderItem[];
     total: number;
-    tableNumber: string;
+    customerIdentifier: string; // Was tableNumber
     status: OrderStatus;
     createdAt: Timestamp;
 }

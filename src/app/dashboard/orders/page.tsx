@@ -1,3 +1,4 @@
+
 // src/app/dashboard/orders/page.tsx
 "use client";
 
@@ -35,6 +36,7 @@ export default function OrdersPage() {
   const [progress, setProgress] = useState(0);
 
   const currencySymbol = useMemo(() => profile?.currency?.symbol || '$', [profile]);
+  const orderStyle = useMemo(() => profile?.orderStyle || 'table', [profile]);
 
   useEffect(() => {
     if (!user) return;
@@ -121,7 +123,9 @@ export default function OrdersPage() {
                 <Card key={order.id} className="flex flex-col">
                     <CardHeader className="flex-row items-start justify-between">
                         <div>
-                            <CardTitle>Table #{order.tableNumber}</CardTitle>
+                            <CardTitle>
+                                {orderStyle === 'table' ? `Table #${order.customerIdentifier}` : order.customerIdentifier}
+                            </CardTitle>
                             <CardDescription className="flex items-center gap-1.5 pt-1">
                                 <Clock className="w-3 h-3"/>
                                 {order.createdAt ? formatDistanceToNow(order.createdAt, { addSuffix: true }) : 'just now'}
@@ -178,7 +182,9 @@ export default function OrdersPage() {
                 <Card key={order.id} className="opacity-70">
                      <CardHeader className="flex-row items-start justify-between">
                         <div>
-                            <CardTitle>Table #{order.tableNumber}</CardTitle>
+                            <CardTitle>
+                                {orderStyle === 'table' ? `Table #${order.customerIdentifier}` : order.customerIdentifier}
+                            </CardTitle>
                             <CardDescription className="flex items-center gap-1.5 pt-1">
                                 <Clock className="w-3 h-3"/>
                                 {order.createdAt ? formatDistanceToNow(order.createdAt, { addSuffix: true }) : 'a while ago'}

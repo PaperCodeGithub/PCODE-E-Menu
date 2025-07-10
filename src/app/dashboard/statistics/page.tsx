@@ -1,3 +1,4 @@
+
 // src/app/dashboard/statistics/page.tsx
 "use client";
 
@@ -31,7 +32,7 @@ import {
   Legend
 } from "recharts";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DollarSign, ShoppingBag, BarChart3 } from 'lucide-react';
+import { DollarSign, ShoppingBag, BarChart3, User } from 'lucide-react';
 import { 
     startOfToday, 
     startOfMonth, 
@@ -52,6 +53,7 @@ export default function StatisticsPage() {
   const [progress, setProgress] = useState(0);
 
   const currencySymbol = useMemo(() => profile?.currency?.symbol || '$', [profile]);
+  const orderStyle = useMemo(() => profile?.orderStyle || 'table', [profile]);
 
   useEffect(() => {
     if (!user) return;
@@ -270,7 +272,9 @@ export default function StatisticsPage() {
               <Table>
                   <TableHeader>
                       <TableRow>
-                          <TableHead>Table No.</TableHead>
+                          <TableHead>
+                            {orderStyle === 'table' ? 'Table No.' : 'Customer'}
+                          </TableHead>
                           <TableHead>Date</TableHead>
                           <TableHead className="text-right">Amount</TableHead>
                       </TableRow>
@@ -278,7 +282,9 @@ export default function StatisticsPage() {
                   <TableBody>
                       {recentServedOrders.length > 0 ? recentServedOrders.map(order => (
                           <TableRow key={order.id}>
-                              <TableCell className="font-medium">#{order.tableNumber}</TableCell>
+                              <TableCell className="font-medium">
+                                  {orderStyle === 'table' ? `#${order.customerIdentifier}` : order.customerIdentifier}
+                              </TableCell>
                               <TableCell>{format(order.createdAt, 'PPp')}</TableCell>
                               <TableCell className="text-right">{currencySymbol}{order.total.toFixed(2)}</TableCell>
                           </TableRow>

@@ -1,3 +1,4 @@
+
 // src/app/order-status/[orderId]/page.tsx
 "use client";
 
@@ -33,6 +34,7 @@ export default function OrderStatusPage() {
   const [error, setError] = useState<string | null>(null);
 
   const currencySymbol = useMemo(() => profile?.currency?.symbol || '$', [profile]);
+  const orderStyle = useMemo(() => profile?.orderStyle || 'table', [profile]);
   
   useEffect(() => {
     if (!orderId) {
@@ -118,7 +120,8 @@ export default function OrderStatusPage() {
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-headline">Order Status</CardTitle>
           <CardDescription>
-            For Table #{order.tableNumber} - Placed at {order.createdAt ? format(order.createdAt, 'p') : ''}
+            {orderStyle === 'table' ? `For Table #${order.customerIdentifier}` : `For ${order.customerIdentifier}`}
+             - Placed at {order.createdAt ? format(order.createdAt, 'p') : ''}
           </CardDescription>
         </CardHeader>
         <CardContent className="text-center space-y-6">
