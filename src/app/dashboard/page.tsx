@@ -203,32 +203,45 @@ export default function DashboardPage() {
       updatedCategories = categories.map((c) =>
         c.id === editingCategory.id ? { ...c, ...values } : c
       );
-      toast({ title: "Category Updated", description: `"${values.name}" has been updated.` });
     } else {
       const newCategory = { id: uuidv4(), ...values };
       updatedCategories = [...categories, newCategory];
+    }
+    
+    await saveData(updatedCategories, menuItems);
+    setCategories(updatedCategories);
+
+    if (editingCategory) {
+      toast({ title: "Category Updated", description: `"${values.name}" has been updated.` });
+    } else {
       toast({ title: "Category Added", description: `"${values.name}" has been created.` });
     }
-    setCategories(updatedCategories);
-    await saveData(updatedCategories, menuItems);
+    
     setCategoryDialogOpen(false);
   };
 
   const handleMenuItemSubmit = async (values: z.infer<typeof menuItemSchema>) => {
     const image = imagePreview || "https://placehold.co/600x400.png";
     let updatedMenuItems;
+
     if (editingMenuItem) {
       updatedMenuItems = menuItems.map((item) =>
         item.id === editingMenuItem.id ? { ...item, ...values, image } : item
       );
-      toast({ title: "Menu Item Updated", description: `"${values.name}" has been updated.` });
     } else {
       const newItem: MenuItem = { id: uuidv4(), ...values, image };
       updatedMenuItems = [...menuItems, newItem];
-       toast({ title: "Menu Item Added", description: `"${values.name}" has been created.` });
     }
-    setMenuItems(updatedMenuItems);
+
     await saveData(categories, updatedMenuItems);
+    setMenuItems(updatedMenuItems);
+    
+    if (editingMenuItem) {
+        toast({ title: "Menu Item Updated", description: `"${values.name}" has been updated.` });
+    } else {
+        toast({ title: "Menu Item Added", description: `"${values.name}" has been created.` });
+    }
+
     setMenuItemDialogOpen(false);
     setImagePreview(null);
   };
@@ -250,9 +263,11 @@ export default function DashboardPage() {
       updatedMenuItems = menuItems.filter((item) => item.id !== itemToDelete.id);
       toast({ title: "Menu Item Deleted", description: `"${itemName}" was deleted.`, variant: "destructive" });
     }
+    
+    await saveData(updatedCategories, updatedMenuItems);
     setCategories(updatedCategories);
     setMenuItems(updatedMenuItems);
-    await saveData(updatedCategories, updatedMenuItems);
+
     setDeleteDialogOpen(false);
     setItemToDelete(null);
   };
