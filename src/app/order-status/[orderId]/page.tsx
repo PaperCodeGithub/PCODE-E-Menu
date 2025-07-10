@@ -26,15 +26,16 @@ export default function OrderStatusPage({ params }: { params: { orderId: string 
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const orderId = params.orderId;
 
   useEffect(() => {
-    if (!params.orderId) {
+    if (!orderId) {
       setError("No order ID provided.");
       setLoading(false);
       return;
     }
 
-    const orderRef = doc(db, 'orders', params.orderId);
+    const orderRef = doc(db, 'orders', orderId);
     const unsubscribe = onSnapshot(orderRef, (doc) => {
       if (doc.exists()) {
         const data = doc.data() as Order;
@@ -54,7 +55,7 @@ export default function OrderStatusPage({ params }: { params: { orderId: string 
     });
 
     return () => unsubscribe();
-  }, [params.orderId]);
+  }, [orderId]);
 
   const currentStatusInfo = order ? statusMap[order.status] : null;
   const progressPercentage = currentStatusInfo ? (currentStatusInfo.step / TOTAL_STEPS) * 100 : 0;

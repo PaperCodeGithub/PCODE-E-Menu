@@ -53,6 +53,8 @@ const sampleMenuItems: MenuItem[] = [
 export default function MenuPage({ params }: { params: { restaurantId: string } }) {
   const { toast } = useToast();
   const router = useRouter();
+  const restaurantId = params.restaurantId;
+
   const [restaurantProfile, setRestaurantProfile] = useState<RestaurantProfile | null>(null);
   const [menuData, setMenuData] = useState<{categories: Category[], menuItems: MenuItem[]} | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -63,7 +65,7 @@ export default function MenuPage({ params }: { params: { restaurantId: string } 
   const [tableNumber, setTableNumber] = useState("");
   const [customerOrders, setCustomerOrders] = useState<string[]>([]);
   
-  const isDemo = params.restaurantId === 'sample';
+  const isDemo = restaurantId === 'sample';
 
   useEffect(() => {
     if (isDemo) return;
@@ -81,7 +83,7 @@ export default function MenuPage({ params }: { params: { restaurantId: string } 
         return;
     }
 
-    if (!params.restaurantId) {
+    if (!restaurantId) {
         setError("No restaurant ID provided.");
         setIsLoading(false);
         return;
@@ -90,8 +92,8 @@ export default function MenuPage({ params }: { params: { restaurantId: string } 
     const fetchData = async () => {
         setIsLoading(true);
         try {
-            const profileDocRef = doc(db, 'profiles', params.restaurantId);
-            const menuDocRef = doc(db, 'menus', params.restaurantId);
+            const profileDocRef = doc(db, 'profiles', restaurantId);
+            const menuDocRef = doc(db, 'menus', restaurantId);
 
             const [profileDoc, menuDoc] = await Promise.all([
                 getDoc(profileDocRef),
@@ -114,7 +116,7 @@ export default function MenuPage({ params }: { params: { restaurantId: string } 
     };
     
     fetchData();
-  }, [params.restaurantId, isDemo]);
+  }, [restaurantId, isDemo]);
 
   const handleAddToOrder = (item: MenuItem) => {
     setOrder((prevOrder) => {
@@ -153,7 +155,7 @@ export default function MenuPage({ params }: { params: { restaurantId: string } 
         const orderId = uuidv4();
         const newOrder: Order = {
             id: orderId,
-            restaurantId: params.restaurantId,
+            restaurantId: restaurantId,
             items: order,
             total: orderTotal,
             tableNumber: tableNumber,
