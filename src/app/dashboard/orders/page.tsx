@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from '@/components/ui/badge';
-import { ShoppingBag, Clock } from 'lucide-react';
+import { ShoppingBag, Clock, Hash } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { Progress } from '@/components/ui/progress';
 import { useDashboard } from '../layout';
@@ -121,19 +121,20 @@ export default function OrdersPage() {
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mt-4">
             {activeOrders.length > 0 ? activeOrders.map(order => (
                 <Card key={order.id} className="flex flex-col">
-                    <CardHeader className="flex-row items-start justify-between">
-                        <div>
-                            <CardTitle>
-                                {orderStyle === 'table' ? `Table #${order.customerIdentifier}` : order.customerIdentifier}
+                    <CardHeader>
+                        <div className="flex items-start justify-between">
+                             <CardTitle>
+                                {order.orderNumber && <span className="text-primary font-bold">#{order.orderNumber}</span>}
+                                <span className="ml-2">{orderStyle === 'table' ? `Table ${order.customerIdentifier}` : order.customerIdentifier}</span>
                             </CardTitle>
-                            <CardDescription className="flex items-center gap-1.5 pt-1">
-                                <Clock className="w-3 h-3"/>
-                                {order.createdAt ? formatDistanceToNow(order.createdAt, { addSuffix: true }) : 'just now'}
-                            </CardDescription>
+                            <Badge variant="secondary" className="whitespace-nowrap">
+                                {currencySymbol}{order.total.toFixed(2)}
+                            </Badge>
                         </div>
-                        <Badge variant="secondary" className="whitespace-nowrap">
-                            {currencySymbol}{order.total.toFixed(2)}
-                        </Badge>
+                        <CardDescription className="flex items-center gap-1.5 pt-1">
+                            <Clock className="w-3 h-3"/>
+                            {order.createdAt ? formatDistanceToNow(order.createdAt, { addSuffix: true }) : 'just now'}
+                        </CardDescription>
                     </CardHeader>
                     <CardContent className="flex-grow space-y-2">
                         <ul className="text-sm list-disc pl-5 text-muted-foreground">
@@ -180,19 +181,20 @@ export default function OrdersPage() {
          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mt-4">
             {pastOrders.length > 0 ? pastOrders.map(order => (
                 <Card key={order.id} className="opacity-70">
-                     <CardHeader className="flex-row items-start justify-between">
-                        <div>
+                     <CardHeader>
+                        <div className="flex items-start justify-between">
                             <CardTitle>
-                                {orderStyle === 'table' ? `Table #${order.customerIdentifier}` : order.customerIdentifier}
+                               {order.orderNumber && <span className="text-muted-foreground font-bold">#{order.orderNumber}</span>}
+                               <span className="ml-2">{orderStyle === 'table' ? `Table ${order.customerIdentifier}` : order.customerIdentifier}</span>
                             </CardTitle>
-                            <CardDescription className="flex items-center gap-1.5 pt-1">
-                                <Clock className="w-3 h-3"/>
-                                {order.createdAt ? formatDistanceToNow(order.createdAt, { addSuffix: true }) : 'a while ago'}
-                            </CardDescription>
+                             <Badge variant="secondary" className="whitespace-nowrap">
+                                {currencySymbol}{order.total.toFixed(2)}
+                            </Badge>
                         </div>
-                        <Badge variant="secondary" className="whitespace-nowrap">
-                            {currencySymbol}{order.total.toFixed(2)}
-                        </Badge>
+                        <CardDescription className="flex items-center gap-1.5 pt-1">
+                            <Clock className="w-3 h-3"/>
+                            {order.createdAt ? formatDistanceToNow(order.createdAt, { addSuffix: true }) : 'a while ago'}
+                        </CardDescription>
                     </CardHeader>
                     <CardContent>
                          <div className="flex items-center gap-2">

@@ -31,10 +31,11 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Logo } from "@/components/icons";
 import { Skeleton } from '@/components/ui/skeleton';
-import { doc, getDoc, setDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp, onSnapshot, runTransaction } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { getNextOrderNumber } from '@/lib/order-number';
 
 const sampleProfile: RestaurantProfile = {
   name: 'The Demo Cafe',
@@ -176,6 +177,7 @@ export function MenuClient({ restaurantId }: { restaurantId: string }) {
     setPlacingOrder(true);
     try {
         const orderId = uuidv4();
+        const orderNumber = await getNextOrderNumber(restaurantId);
         
         // Clean up items for Firestore
         const itemsToSave = order.map(item => {
@@ -189,9 +191,10 @@ export function MenuClient({ restaurantId }: { restaurantId: string }) {
             total: orderTotal,
             customerIdentifier: customerIdentifier,
             status: "Received",
+            orderNumber: orderNumber
         };
 
-        const finalOrder = { id: orderId, ...newOrder, createdAt: serverTimestamp() };
+        const finalOrder = { ...newOrder, createdAt: serverTimestamp() };
         
         await setDoc(doc(db, "orders", orderId), finalOrder);
         

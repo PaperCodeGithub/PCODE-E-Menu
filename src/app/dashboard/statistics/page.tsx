@@ -73,7 +73,7 @@ export default function StatisticsPage() {
         createdAt: doc.data().createdAt?.toDate()
         })) as Order[];
         
-        fetchedOrders.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+        fetchedOrders.sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
         setAllOrders(fetchedOrders);
         setOrdersLoading(false);
     }, (error) => {
@@ -96,7 +96,7 @@ export default function StatisticsPage() {
       interval = { start: startOfYear(now), end: now };
     }
 
-    return allOrders.filter(order => isWithinInterval(order.createdAt, interval));
+    return allOrders.filter(order => order.createdAt && isWithinInterval(order.createdAt, interval));
   }, [allOrders, timeframe]);
 
   const stats = useMemo(() => {
@@ -118,6 +118,7 @@ export default function StatisticsPage() {
         Revenue: 0,
       }));
       filteredOrders.forEach(order => {
+        if(!order.createdAt) return;
         const hour = order.createdAt.getHours();
         hourlyData[hour].Revenue += order.total;
       });
@@ -131,6 +132,7 @@ export default function StatisticsPage() {
         Revenue: 0,
       }));
        filteredOrders.forEach(order => {
+        if(!order.createdAt) return;
         const day = order.createdAt.getDate();
         dailyData[day-1].Revenue += order.total;
       });
@@ -142,6 +144,7 @@ export default function StatisticsPage() {
             Revenue: 0
         }));
         filteredOrders.forEach(order => {
+            if(!order.createdAt) return;
             const month = order.createdAt.getMonth();
             monthlyData[month].Revenue += order.total;
         });
@@ -272,6 +275,7 @@ export default function StatisticsPage() {
               <Table>
                   <TableHeader>
                       <TableRow>
+                          <TableHead>Order</TableHead>
                           <TableHead>
                             {orderStyle === 'table' ? 'Table No.' : 'Customer'}
                           </TableHead>
@@ -282,15 +286,16 @@ export default function StatisticsPage() {
                   <TableBody>
                       {recentServedOrders.length > 0 ? recentServedOrders.map(order => (
                           <TableRow key={order.id}>
-                              <TableCell className="font-medium">
-                                  {orderStyle === 'table' ? `#${order.customerIdentifier}` : order.customerIdentifier}
+                              <TableCell className="font-medium">#{order.orderNumber}</TableCell>
+                              <TableCell>
+                                  {orderStyle === 'table' ? `${order.customerIdentifier}` : order.customerIdentifier}
                               </TableCell>
-                              <TableCell>{format(order.createdAt, 'PPp')}</TableCell>
+                              <TableCell>{order.createdAt ? format(order.createdAt, 'PPp') : ''}</TableCell>
                               <TableCell className="text-right">{currencySymbol}{order.total.toFixed(2)}</TableCell>
                           </TableRow>
                       )) : (
                           <TableRow>
-                              <TableCell colSpan={3} className="h-24 text-center">
+                              <TableCell colSpan={4} className="h-24 text-center">
                                   No completed orders found.
                               </TableCell>
                           </TableRow>

@@ -43,4 +43,5 @@ export interface Order {
     customerIdentifier: string; // Was tableNumber
     status: OrderStatus;
     createdAt: Timestamp;
+    orderNumber: number;
 }

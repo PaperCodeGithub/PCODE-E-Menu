@@ -118,9 +118,11 @@ export default function OrderStatusPage() {
     <div className="flex items-center justify-center min-h-screen bg-gray-50 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-headline">Order Status</CardTitle>
+           <CardTitle className="text-2xl font-headline">
+             Order #{order.orderNumber}
+           </CardTitle>
           <CardDescription>
-            {orderStyle === 'table' ? `For Table #${order.customerIdentifier}` : `For ${order.customerIdentifier}`}
+            {orderStyle === 'table' ? `For Table ${order.customerIdentifier}` : `For ${order.customerIdentifier}`}
              - Placed at {order.createdAt ? format(order.createdAt, 'p') : ''}
           </CardDescription>
         </CardHeader>
