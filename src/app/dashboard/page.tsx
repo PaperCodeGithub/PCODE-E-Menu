@@ -23,7 +23,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { v4 as uuidv4 } from "uuid";
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getStorage, ref, uploadString, getDownloadURL } from "firebase/storage";
+import { db, storage } from '@/lib/firebase';
 import type { Category, MenuItem } from "@/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -157,18 +158,16 @@ export default function DashboardPage() {
       if (!user) return;
       try {
         const menuDocRef = getMenuDocument(user.uid);
-        const docSnap = await getDoc(menuDocRef);
-
         const dataToSave = {
             categories: currentCategories,
             menuItems: currentMenuItems,
+            // Include a timestamp to ensure the document has some data if both are empty
+            updatedAt: new Date(), 
         };
 
-        if (docSnap.exists()) {
-            await updateDoc(menuDocRef, dataToSave);
-        } else {
-            await setDoc(menuDocRef, dataToSave);
-        }
+        // Use setDoc with merge to create or update the document.
+        await setDoc(menuDocRef, dataToSave, { merge: true });
+
       } catch (error) {
         console.error("Failed to save to Firestore:", error);
         toast({ title: "Could not save data", description: "Your changes could not be saved to the database.", variant: "destructive" });
@@ -245,6 +244,7 @@ export default function DashboardPage() {
   };
 
   const handleMenuItemSubmit = async (values: z.infer<typeof menuItemSchema>) => {
+    if (!user) return;
     if (!values.categoryId) {
         toast({
             title: "Category Required",
@@ -255,30 +255,45 @@ export default function DashboardPage() {
     }
 
     setIsSaving(true);
-    const image = imagePreview || "https://placehold.co/600x400.png";
-    let updatedMenuItems;
-
-    if (editingMenuItem) {
-      updatedMenuItems = menuItems.map((item) =>
-        item.id === editingMenuItem.id ? { ...item, ...values, image } : item
-      );
-    } else {
-      const newItem: MenuItem = { id: uuidv4(), ...values, image };
-      updatedMenuItems = [...menuItems, newItem];
-    }
+    let imageUrl = editingMenuItem?.image || "https://placehold.co/600x400.png";
 
     try {
+      // If there is a new image (it will be a data URI), upload it to storage.
+      if (imagePreview && imagePreview.startsWith('data:')) {
+        const imageRef = ref(storage, `menuItems/${user.uid}/${uuidv4()}`);
+        const uploadResult = await uploadString(imageRef, imagePreview, 'data_url');
+        imageUrl = await getDownloadURL(uploadResult.ref);
+      } else if (imagePreview) {
+        // It's an existing URL, keep it.
+        imageUrl = imagePreview;
+      }
+      
+      let updatedMenuItems;
+      const newItemData = { ...values, image: imageUrl };
+
+      if (editingMenuItem) {
+        updatedMenuItems = menuItems.map((item) =>
+          item.id === editingMenuItem.id ? { ...item, ...newItemData } : item
+        );
+      } else {
+        const newItem: MenuItem = { id: uuidv4(), ...newItemData };
+        updatedMenuItems = [...menuItems, newItem];
+      }
+
       await saveData(categories, updatedMenuItems);
       setMenuItems(updatedMenuItems);
+
       if (editingMenuItem) {
           toast({ title: "Menu Item Updated", description: `"${values.name}" has been updated.` });
       } else {
           toast({ title: "Menu Item Added", description: `"${values.name}" has been created.` });
       }
+
       setMenuItemDialogOpen(false);
       setImagePreview(null);
     } catch (e) {
-        // Error toast is shown in saveData
+        console.error("Failed during menu item submission:", e);
+        toast({ title: "Save Failed", description: "There was an error saving the menu item.", variant: "destructive" });
     } finally {
       setIsSaving(false);
     }
