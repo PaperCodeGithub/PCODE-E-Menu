@@ -85,8 +85,7 @@ export default function DashboardLayout({
     const q = query(
       collection(db, 'orders'),
       where('restaurantId', '==', user.uid),
-      where('status', '!=', 'Served'),
-      where('status', '!=', 'Canceled')
+      where('status', 'not-in', ['Served', 'Canceled'])
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
