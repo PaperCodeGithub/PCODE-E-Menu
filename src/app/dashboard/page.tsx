@@ -153,10 +153,14 @@ export default function DashboardPage() {
   }, [user, toast, getMenuDocument]);
   
   // Save data to Firestore
-  const saveData = useCallback(async (data: { categories: Category[], menuItems: MenuItem[] }) => {
+  const saveData = useCallback(async (currentCategories: Category[], currentMenuItems: MenuItem[]) => {
       if (!user) return;
       try {
-        await setDoc(getMenuDocument(user.uid), data, { merge: true });
+        const menuDocRef = getMenuDocument(user.uid);
+        await setDoc(menuDocRef, { 
+          categories: currentCategories, 
+          menuItems: currentMenuItems 
+        }, { merge: true });
       } catch (error) {
         console.error("Failed to save to Firestore:", error);
         toast({ title: "Could not save data", description: "Your changes could not be saved to the database.", variant: "destructive" });
@@ -217,7 +221,7 @@ export default function DashboardPage() {
     }
     
     try {
-      await saveData({ categories: updatedCategories, menuItems: menuItems });
+      await saveData(updatedCategories, menuItems);
       setCategories(updatedCategories);
       if (editingCategory) {
         toast({ title: "Category Updated", description: `"${values.name}" has been updated.` });
@@ -247,7 +251,7 @@ export default function DashboardPage() {
     }
 
     try {
-      await saveData({ categories: categories, menuItems: updatedMenuItems });
+      await saveData(categories, updatedMenuItems);
       setMenuItems(updatedMenuItems);
       if (editingMenuItem) {
           toast({ title: "Menu Item Updated", description: `"${values.name}" has been updated.` });
@@ -281,7 +285,7 @@ export default function DashboardPage() {
     }
     
     try {
-      await saveData({ categories: updatedCategories, menuItems: updatedMenuItems });
+      await saveData(updatedCategories, updatedMenuItems);
       setCategories(updatedCategories);
       setMenuItems(updatedMenuItems);
 
