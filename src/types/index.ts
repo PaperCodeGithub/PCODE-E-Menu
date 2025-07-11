@@ -12,7 +12,8 @@ export interface MenuItem {
   description: string;
   price: number;
   categoryId: string;
-  image?: string;
+  imageId?: string;
+  image?: string; // For local preview
 }
 
 export interface OrderItem extends MenuItem {
@@ -38,7 +39,7 @@ export type OrderStatus = 'Received' | 'Ongoing' | 'Finishing' | 'On the Way' | 
 export interface Order {
     id: string;
     restaurantId: string;
-    items: OrderItem[];
+    items: Omit<OrderItem, 'image' | 'imageId' | 'description'>[];
     total: number;
     customerIdentifier: string; // Was tableNumber
     status: OrderStatus;

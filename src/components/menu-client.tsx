@@ -31,7 +31,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Logo } from "@/components/icons";
 import { Skeleton } from '@/components/ui/skeleton';
-import { doc, getDoc, setDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp, onSnapshot, collection } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
@@ -54,13 +54,64 @@ const sampleCategories: Category[] = [
 ];
 
 const sampleMenuItems: MenuItem[] = [
-  { id: 'item1', categoryId: 'cat1', name: 'Bruschetta', description: 'Grilled bread with tomatoes, garlic, basil, and olive oil.', price: 8.99, image: 'https://placehold.co/600x400.png' },
-  { id: 'item2', categoryId: 'cat1', name: 'Spinach Dip', description: 'Creamy spinach and artichoke dip served with tortilla chips.', price: 10.50, image: 'https://placehold.co/600x400.png' },
-  { id: 'item3', categoryId: 'cat2', name: 'Margherita Pizza', description: 'Classic pizza with fresh mozzarella, tomatoes, and basil.', price: 14.00, image: 'https://placehold.co/600x400.png' },
-  { id: 'item4', categoryId: 'cat2', name: 'Classic Burger', description: 'Juicy beef patty with lettuce, tomato, and our special sauce.', price: 12.99, image: 'https://placehold.co/600x400.png' },
-  { id: 'item5', categoryId: 'cat3', name: 'Chocolate Lava Cake', description: 'Warm chocolate cake with a gooey molten center.', price: 7.50, image: 'https://placehold.co/600x400.png' },
-  { id: 'item6', categoryId: 'cat4', name: 'Iced Coffee', description: 'Chilled coffee served over ice, with milk and sugar options.', price: 4.50, image: 'https://placehold.co/600x400.png' },
+  { id: 'item1', categoryId: 'cat1', name: 'Bruschetta', description: 'Grilled bread with tomatoes, garlic, basil, and olive oil.', price: 8.99, image: 'https://placehold.co/600x400.png', imageId: 'sample1' },
+  { id: 'item2', categoryId: 'cat1', name: 'Spinach Dip', description: 'Creamy spinach and artichoke dip served with tortilla chips.', price: 10.50, image: 'https://placehold.co/600x400.png', imageId: 'sample2' },
+  { id: 'item3', categoryId: 'cat2', name: 'Margherita Pizza', description: 'Classic pizza with fresh mozzarella, tomatoes, and basil.', price: 14.00, image: 'https://placehold.co/600x400.png', imageId: 'sample3' },
+  { id: 'item4', categoryId: 'cat2', name: 'Classic Burger', description: 'Juicy beef patty with lettuce, tomato, and our special sauce.', price: 12.99, image: 'https://placehold.co/600x400.png', imageId: 'sample4' },
+  { id: 'item5', categoryId: 'cat3', name: 'Chocolate Lava Cake', description: 'Warm chocolate cake with a gooey molten center.', price: 7.50, image: 'https://placehold.co/600x400.png', imageId: 'sample5' },
+  { id: 'item6', categoryId: 'cat4', name: 'Iced Coffee', description: 'Chilled coffee served over ice, with milk and sugar options.', price: 4.50, image: 'https://placehold.co/600x400.png', imageId: 'sample6' },
 ];
+
+// A simple component to handle fetching and displaying the image from the separate collection
+function MenuItemImage({ imageId, alt }: { imageId?: string; alt: string }) {
+  const [imageUrl, setImageUrl] = useState<string | null>('https://placehold.co/600x400.png');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!imageId) {
+      setLoading(false);
+      return;
+    }
+
+    const imageDocRef = doc(db, 'menuImages', imageId);
+    const unsubscribe = onSnapshot(imageDocRef, (doc) => {
+      if (doc.exists()) {
+        setImageUrl(doc.data().imageData);
+      } else {
+        setImageUrl(null); // Or a placeholder
+      }
+      setLoading(false);
+    }, (error) => {
+        console.error(`Failed to fetch image ${imageId}:`, error);
+        setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [imageId]);
+
+  if (loading) {
+    return <Skeleton className="h-full w-full" />;
+  }
+
+  return (
+    <>
+      {imageUrl ? (
+        <Image
+          data-ai-hint="food meal"
+          src={imageUrl}
+          alt={alt}
+          fill
+          sizes="(max-width: 768px) 100vw, 50vw"
+          className="object-cover"
+        />
+      ) : (
+        <div className="h-full w-full bg-muted flex items-center justify-center text-muted-foreground text-sm">
+            No Image
+        </div>
+      )}
+    </>
+  );
+}
 
 
 export function MenuClient({ restaurantId }: { restaurantId: string }) {
@@ -182,7 +233,7 @@ export function MenuClient({ restaurantId }: { restaurantId: string }) {
         
         // Clean up items for Firestore
         const itemsToSave = order.map(item => {
-            const { description, image, ...rest } = item;
+            const { description, image, imageId, ...rest } = item;
             return rest;
         });
         
@@ -331,16 +382,7 @@ export function MenuClient({ restaurantId }: { restaurantId: string }) {
                   {itemsInCategory.map((item) => (
                     <Card key={item.id} className="flex flex-col overflow-hidden transition-shadow hover:shadow-lg animate-in fade-in-0 duration-300">
                       <div className="overflow-hidden h-48 w-full relative">
-                        {item.image ? (
-                            <Image
-                                data-ai-hint="food meal"
-                                src={item.image}
-                                alt={item.name}
-                                fill
-                                sizes="(max-width: 768px) 100vw, 50vw"
-                                className="object-cover"
-                            />
-                        ) : <Skeleton className="h-full w-full" />}
+                        <MenuItemImage imageId={item.imageId} alt={item.name} />
                       </div>
                       <CardHeader>
                         <CardTitle className="font-headline">{item.name}</CardTitle>
@@ -393,9 +435,7 @@ export function MenuClient({ restaurantId }: { restaurantId: string }) {
                     {order.map(item => (
                         <div key={item.id} className="flex items-center gap-4 py-4">
                             <div className="w-16 h-16 relative rounded-md overflow-hidden flex-shrink-0">
-                                {item.image ? (
-                                    <Image src={item.image} alt={item.name} fill sizes="64px" className="object-cover" data-ai-hint="food meal"/>
-                                ) : <Skeleton className="h-full w-full"/>}
+                                <MenuItemImage imageId={item.imageId} alt={item.name} />
                             </div>
                             <div className="flex-grow">
                                 <p className="font-semibold">{item.name}</p>
@@ -466,5 +506,3 @@ export function MenuClient({ restaurantId }: { restaurantId: string }) {
     </>
   );
 }
-
-    

@@ -22,7 +22,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { v4 as uuidv4 } from "uuid";
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, deleteDoc, collection } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Category, MenuItem } from "@/types";
 import { Button } from "@/components/ui/button";
@@ -84,7 +84,7 @@ const menuItemSchema = z.object({
   description: z.string().min(5, "Description must be at least 25 characters."),
   price: z.coerce.number().min(0.01, "Price must be a positive number."),
   categoryId: z.string().min(1, "You must select a category."),
-  image: z.string().optional(),
+  imageId: z.string().optional(),
 });
 
 export default function DashboardPage() {
@@ -109,6 +109,7 @@ export default function DashboardPage() {
   const [itemToDelete, setItemToDelete] = useState<{
     id: string;
     type: "category" | "menuItem";
+    imageId?: string;
   } | null>(null);
   const [isDeleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isQrDialogOpen, setQrDialogOpen] = useState(false);
@@ -138,7 +139,19 @@ export default function DashboardPage() {
             if (menuDoc.exists()) {
                 const data = menuDoc.data();
                 setCategories(data.categories || []);
-                setMenuItems(data.menuItems || []);
+                const itemsWithImages = await Promise.all(
+                  (data.menuItems || []).map(async (item: MenuItem) => {
+                    if (item.imageId) {
+                      const imageDocRef = doc(db, 'menuImages', item.imageId);
+                      const imageDoc = await getDoc(imageDocRef);
+                      if (imageDoc.exists()) {
+                        return { ...item, image: imageDoc.data().imageData };
+                      }
+                    }
+                    return item;
+                  })
+                );
+                setMenuItems(itemsWithImages);
             } else {
                 setCategories([]);
                 setMenuItems([]);
@@ -159,9 +172,13 @@ export default function DashboardPage() {
     if (!user) return;
     try {
       const menuDocRef = getMenuDocument(user.uid);
+      const itemsToSave = currentMenuItems.map(item => {
+        const { image, ...rest } = item;
+        return rest;
+      });
       await setDoc(menuDocRef, {
         categories: currentCategories,
-        menuItems: currentMenuItems,
+        menuItems: itemsToSave,
         updatedAt: new Date(),
       }, { merge: true });
     } catch (error: any) {
@@ -187,7 +204,7 @@ export default function DashboardPage() {
       description: "",
       price: 0,
       categoryId: "",
-      image: "",
+      imageId: "",
     },
   });
 
@@ -207,9 +224,9 @@ export default function DashboardPage() {
             description: menuItem.description,
             price: menuItem.price,
             categoryId: menuItem.categoryId,
-            image: menuItem.image || '',
+            imageId: menuItem.imageId || '',
           }
-        : { name: "", description: "", price: 0, categoryId: "", image: "" }
+        : { name: "", description: "", price: 0, categoryId: "", imageId: "" }
     );
     if (imageInputRef.current) {
       imageInputRef.current.value = "";
@@ -250,23 +267,32 @@ export default function DashboardPage() {
     setIsSaving(true);
 
     try {
-        let finalImage = editingMenuItem?.image || '';
+        let newImageId = editingMenuItem?.imageId || values.imageId || null;
 
-        // If a new image was uploaded/generated, it's in imagePreview as a data URI
         if (imagePreview && imagePreview.startsWith('data:')) {
-            toast({ title: "Compressing Image...", description: "Please wait while we optimize the image." });
-            finalImage = await compressImage(imagePreview, { maxWidth: 400, maxHeight: 300, quality: 0.7 });
+            toast({ title: "Compressing and Saving Image...", description: "Please wait." });
+            const compressedData = await compressImage(imagePreview, { maxWidth: 400, maxHeight: 300, quality: 0.7 });
+            
+            // If there was an old image, delete it from the images collection
+            if (editingMenuItem?.imageId) {
+              const oldImageRef = doc(db, 'menuImages', editingMenuItem.imageId);
+              await deleteDoc(oldImageRef).catch(e => console.error("Could not delete old image:", e));
+            }
+            
+            newImageId = uuidv4();
+            const newImageRef = doc(db, 'menuImages', newImageId);
+            await setDoc(newImageRef, { imageData: compressedData });
         }
 
-        const newItemData = { ...values, image: finalImage || `https://placehold.co/400x300.png` };
+        const newItemData = { ...values, imageId: newImageId || undefined };
       
         let updatedMenuItems;
         if (editingMenuItem) {
             updatedMenuItems = menuItems.map((item) =>
-                item.id === editingMenuItem.id ? { ...item, ...newItemData, id: item.id } : item
+                item.id === editingMenuItem.id ? { ...item, ...newItemData, id: item.id, image: imagePreview || item.image } : item
             );
         } else {
-            const newItem: MenuItem = { id: uuidv4(), ...newItemData };
+            const newItem: MenuItem = { id: uuidv4(), ...newItemData, image: imagePreview || undefined };
             updatedMenuItems = [...menuItems, newItem];
         }
 
@@ -300,10 +326,20 @@ export default function DashboardPage() {
     try {
         if (itemToDelete.type === "category") {
           categoryName = categories.find(c => c.id === itemToDelete.id)?.name || "";
+          // Find all items in the category to delete their images
+          const itemsInCat = menuItems.filter(item => item.categoryId === itemToDelete.id);
+          for (const item of itemsInCat) {
+              if (item.imageId) {
+                  await deleteDoc(doc(db, 'menuImages', item.imageId));
+              }
+          }
           updatedMenuItems = menuItems.filter((item) => item.categoryId !== itemToDelete.id);
           updatedCategories = categories.filter((c) => c.id !== itemToDelete.id);
         } else if (itemToDelete.type === "menuItem") {
           itemName = menuItems.find(i => i.id === itemToDelete.id)?.name || "";
+          if (itemToDelete.imageId) {
+              await deleteDoc(doc(db, 'menuImages', itemToDelete.imageId));
+          }
           updatedMenuItems = menuItems.filter((item) => item.id !== itemToDelete.id);
         }
         
@@ -544,7 +580,7 @@ export default function DashboardPage() {
                             <Pencil className="h-4 w-4" />
                           </Button>
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => {
-                              setItemToDelete({ id: item.id, type: "menuItem" });
+                              setItemToDelete({ id: item.id, type: "menuItem", imageId: item.imageId });
                               setDeleteDialogOpen(true);
                             }}>
                             <Trash2 className="h-4 w-4" />
@@ -749,5 +785,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    
