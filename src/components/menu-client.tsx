@@ -31,11 +31,12 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Logo } from "@/components/icons";
 import { Skeleton } from '@/components/ui/skeleton';
-import { doc, getDoc, setDoc, serverTimestamp, onSnapshot, runTransaction } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { getNextOrderNumber } from '@/lib/order-number';
+import { getImageFromRTDB } from '@/lib/image-db';
 
 const sampleProfile: RestaurantProfile = {
   name: 'The Demo Cafe',
@@ -61,6 +62,109 @@ const sampleMenuItems: MenuItem[] = [
   { id: 'item5', categoryId: 'cat3', name: 'Chocolate Lava Cake', description: 'Warm chocolate cake with a gooey molten center.', price: 7.50, image: 'https://placehold.co/600x400.png' },
   { id: 'item6', categoryId: 'cat4', name: 'Iced Coffee', description: 'Chilled coffee served over ice, with milk and sugar options.', price: 4.50, image: 'https://placehold.co/600x400.png' },
 ];
+
+
+const MenuItemImage = ({ imageId, alt }: { imageId?: string; alt: string }) => {
+    const [imageUrl, setImageUrl] = useState<string | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        // Default to placeholder if no ID
+        if (!imageId) {
+            setImageUrl(`https://placehold.co/600x400.png`);
+            setIsLoading(false);
+            return;
+        }
+
+        // If it's a regular URL (like a placeholder), just use it
+        if (imageId.startsWith('http')) {
+            setImageUrl(imageId);
+            setIsLoading(false);
+            return;
+        }
+
+        // If it's not an RTDB link, maybe it's a direct data URI (for demos)
+        if (!imageId.startsWith('rtdb://')) {
+            setImageUrl(imageId);
+            setIsLoading(false);
+            return;
+        }
+
+        let isMounted = true;
+        setIsLoading(true);
+
+        const fetchImage = async () => {
+            try {
+                const dataUrl = await getImageFromRTDB(imageId);
+                if (isMounted && dataUrl) {
+                    setImageUrl(dataUrl);
+                } else if (isMounted) {
+                   setImageUrl(`https://placehold.co/600x400.png`);
+                }
+            } catch (error) {
+                console.error("Failed to fetch image from RTDB:", error);
+                if (isMounted) {
+                    setImageUrl(`https://placehold.co/600x400.png`);
+                }
+            } finally {
+                if (isMounted) {
+                    setIsLoading(false);
+                }
+            }
+        };
+
+        fetchImage();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [imageId]);
+
+    if (isLoading || !imageUrl) {
+        return <Skeleton className="h-full w-full" />;
+    }
+
+    return (
+        <Image
+            data-ai-hint="food meal"
+            src={imageUrl}
+            alt={alt}
+            fill
+            sizes="(max-width: 768px) 100vw, 50vw"
+            className="object-cover"
+        />
+    );
+};
+
+const OrderItemImage = ({ imageId, alt }: { imageId?: string; alt: string }) => {
+    const [imageUrl, setImageUrl] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!imageId || !imageId.startsWith('rtdb://')) {
+            setImageUrl(imageId || `https://placehold.co/64x64.png`);
+            return;
+        }
+
+        let isMounted = true;
+        getImageFromRTDB(imageId).then(url => {
+            if (isMounted && url) {
+                setImageUrl(url);
+            }
+        }).catch(err => {
+            console.error(err);
+             if (isMounted) setImageUrl(`https://placehold.co/64x64.png`);
+        });
+
+        return () => { isMounted = false; };
+    }, [imageId]);
+
+    if (!imageUrl) return <Skeleton className="h-16 w-16 rounded-md" />;
+
+    return (
+       <Image src={imageUrl} alt={alt} fill sizes="64px" className="object-cover" data-ai-hint="food meal"/>
+    );
+};
+
 
 export function MenuClient({ restaurantId }: { restaurantId: string }) {
   const { toast } = useToast();
@@ -329,18 +433,9 @@ export function MenuClient({ restaurantId }: { restaurantId: string }) {
                 <div className="grid md:grid-cols-2 gap-6">
                   {itemsInCategory.map((item) => (
                     <Card key={item.id} className="flex flex-col overflow-hidden transition-shadow hover:shadow-lg animate-in fade-in-0 duration-300">
-                      {item.image && (
-                         <div className="overflow-hidden h-48 w-full relative">
-                           <Image
-                             data-ai-hint="food meal"
-                             src={item.image}
-                             alt={item.name}
-                             fill
-                             sizes="(max-width: 768px) 100vw, 50vw"
-                             className="object-cover"
-                           />
-                         </div>
-                      )}
+                      <div className="overflow-hidden h-48 w-full relative">
+                        <MenuItemImage imageId={item.image} alt={item.name} />
+                      </div>
                       <CardHeader>
                         <CardTitle className="font-headline">{item.name}</CardTitle>
                         <CardDescription className="text-base text-muted-foreground pt-1">{currencySymbol}{item.price.toFixed(2)}</CardDescription>
@@ -392,7 +487,7 @@ export function MenuClient({ restaurantId }: { restaurantId: string }) {
                     {order.map(item => (
                         <div key={item.id} className="flex items-center gap-4 py-4">
                             <div className="w-16 h-16 relative rounded-md overflow-hidden flex-shrink-0">
-                                <Image src={item.image || `https://placehold.co/64x64.png`} alt={item.name} fill sizes="64px" className="object-cover" data-ai-hint="food meal"/>
+                                <OrderItemImage imageId={item.image} alt={item.name} />
                             </div>
                             <div className="flex-grow">
                                 <p className="font-semibold">{item.name}</p>

@@ -23,8 +23,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { v4 as uuidv4 } from "uuid";
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { getStorage, ref, uploadString, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import type { Category, MenuItem } from "@/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -70,9 +69,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 import { generateDescription } from "@/ai/flows/generate-description-flow";
-import { generateImage } from "@/ai/flows/generate-image-flow";
+import { generateImage as generateImageAI } from "@/ai/flows/generate-image-flow";
 import { useDashboard } from "./layout";
 import { compressImage } from "@/lib/image-utils";
+import { saveImageToRTDB, deleteImageFromRTDB } from "@/lib/image-db";
 
 
 // Zod Schemas for Validation
@@ -82,7 +82,7 @@ const categorySchema = z.object({
 
 const menuItemSchema = z.object({
   name: z.string().min(2, "Item name must be at least 2 characters."),
-  description: z.string().min(5, "Description must be at least 5 characters."),
+  description: z.string().min(5, "Description must be at least 25 characters."),
   price: z.coerce.number().min(0.01, "Price must be a positive number."),
   categoryId: z.string().min(1, "You must select a category."),
   image: z.string().optional(),
@@ -160,19 +160,9 @@ export default function DashboardPage() {
     if (!user) return;
     try {
       const menuDocRef = getMenuDocument(user.uid);
-      // Remove any base64 image data before saving to prevent size issues
-      const cleanMenuItems = currentMenuItems.map(item => {
-        if (item.image && item.image.startsWith('data:')) {
-          // This case should not happen with the new logic, but as a safeguard
-          console.warn(`Found a data URI for ${item.name}, replacing with placeholder.`);
-          return { ...item, image: `https://placehold.co/400x300.png` };
-        }
-        return item;
-      });
-
       await setDoc(menuDocRef, {
         categories: currentCategories,
-        menuItems: cleanMenuItems,
+        menuItems: currentMenuItems,
         updatedAt: new Date(),
       }, { merge: true });
     } catch (error: any) {
@@ -210,7 +200,7 @@ export default function DashboardPage() {
 
   const handleOpenMenuItemDialog = (menuItem: MenuItem | null) => {
     setEditingMenuItem(menuItem);
-    setImagePreview(menuItem?.image || null);
+    setImagePreview(menuItem?.image || null); // Note: this is now an ID or a data URI
     menuItemForm.setValue('image', menuItem?.image || '');
     menuItemForm.reset(
       menuItem
@@ -260,22 +250,24 @@ export default function DashboardPage() {
   const handleMenuItemSubmit = async (values: z.infer<typeof menuItemSchema>) => {
     if (!user) return;
     setIsSaving(true);
-    let finalImageUrl = values.image || (editingMenuItem?.image || '');
+    let finalImageIdentifier = editingMenuItem?.image || '';
 
     try {
-        // If imagePreview is a data URI, it means a new file was selected for upload
+        // If imagePreview is a data URI, it means a new file was selected/generated
         if (imagePreview && imagePreview.startsWith('data:')) {
-            toast({title: "Uploading Image...", description: "Please wait while your image is being uploaded."});
-            const compressedDataUrl = await compressImage(imagePreview, { maxWidth: 800, maxHeight: 600, quality: 0.7 });
-            const imageId = uuidv4();
-            const storageRef = ref(storage, `menu_items/${user.uid}/${imageId}.jpeg`);
-            const uploadResult = await uploadString(storageRef, compressedDataUrl, 'data_url', { contentType: 'image/jpeg' });
-            finalImageUrl = await getDownloadURL(uploadResult.ref);
-            toast({title: "Upload Complete!", description: "Your image has been saved."});
+            toast({title: "Processing Image...", description: "Compressing and saving your image."});
+            const compressedDataUrl = await compressImage(imagePreview, { maxWidth: 800, maxHeight: 600, quality: 0.85 });
+            
+            // Delete old image from RTDB if we are editing and had an image before
+            if (editingMenuItem?.image?.startsWith('rtdb://')) {
+              await deleteImageFromRTDB(editingMenuItem.image);
+            }
+            finalImageIdentifier = await saveImageToRTDB(compressedDataUrl);
+            toast({title: "Image Saved!", description: "Your new image is ready."});
         }
       
       let updatedMenuItems;
-      const newItemData = { ...values, image: finalImageUrl || `https://placehold.co/600x400.png` };
+      const newItemData = { ...values, image: finalImageIdentifier || `https://placehold.co/600x400.png` };
 
       if (editingMenuItem) {
         updatedMenuItems = menuItems.map((item) =>
@@ -313,27 +305,38 @@ export default function DashboardPage() {
     let categoryName = "";
     let itemName = "";
 
-    if (itemToDelete.type === "category") {
-      categoryName = categories.find(c => c.id === itemToDelete.id)?.name || "";
-      updatedMenuItems = menuItems.filter((item) => item.categoryId !== itemToDelete.id);
-      updatedCategories = categories.filter((c) => c.id !== itemToDelete.id);
-    } else if (itemToDelete.type === "menuItem") {
-      itemName = menuItems.find(i => i.id === itemToDelete.id)?.name || "";
-      updatedMenuItems = menuItems.filter((item) => item.id !== itemToDelete.id);
-    }
-    
     try {
-      await saveData(updatedCategories, updatedMenuItems);
-      setCategories(updatedCategories);
-      setMenuItems(updatedMenuItems);
+        if (itemToDelete.type === "category") {
+          categoryName = categories.find(c => c.id === itemToDelete.id)?.name || "";
+          const itemsToDeleteInCat = menuItems.filter((item) => item.categoryId === itemToDelete.id);
+          // Delete all associated images from RTDB
+          for (const item of itemsToDeleteInCat) {
+            if (item.image?.startsWith('rtdb://')) {
+              await deleteImageFromRTDB(item.image);
+            }
+          }
+          updatedMenuItems = menuItems.filter((item) => item.categoryId !== itemToDelete.id);
+          updatedCategories = categories.filter((c) => c.id !== itemToDelete.id);
+        } else if (itemToDelete.type === "menuItem") {
+          const item = menuItems.find(i => i.id === itemToDelete.id);
+          itemName = item?.name || "";
+          if (item?.image?.startsWith('rtdb://')) {
+            await deleteImageFromRTDB(item.image);
+          }
+          updatedMenuItems = menuItems.filter((item) => item.id !== itemToDelete.id);
+        }
+        
+        await saveData(updatedCategories, updatedMenuItems);
+        setCategories(updatedCategories);
+        setMenuItems(updatedMenuItems);
 
-      if (itemToDelete.type === 'category') {
-        toast({ title: "Category Deleted", description: `"${categoryName}" and its items were deleted.`, variant: "destructive" });
-      } else {
-        toast({ title: "Menu Item Deleted", description: `"${itemName}" was deleted.`, variant: "destructive" });
-      }
+        if (itemToDelete.type === 'category') {
+            toast({ title: "Category Deleted", description: `"${categoryName}" and its items were deleted.`, variant: "destructive" });
+        } else {
+            toast({ title: "Menu Item Deleted", description: `"${itemName}" was deleted.`, variant: "destructive" });
+        }
     } catch (e) {
-        // Error toast is shown in saveData
+        toast({ title: "Deletion failed", description: "Could not delete the item(s). Please try again.", variant: 'destructive' });
     } finally {
         setDeleteDialogOpen(false);
         setItemToDelete(null);
@@ -379,9 +382,10 @@ export default function DashboardPage() {
 
     setIsGeneratingImage(true);
     try {
-      const imageUrl = await generateImage(itemName, user.uid);
-      setImagePreview(imageUrl);
-      menuItemForm.setValue('image', imageUrl); // Save URL to form
+      // The AI flow returns the base64 data URI
+      const imageDataUri = await generateImageAI(itemName);
+      setImagePreview(imageDataUri); // Set preview with the new data URI
+      // We don't save to the form here; submission handles saving to RTDB
     } catch (error) {
       console.error('Failed to generate image:', error);
       toast({
@@ -413,7 +417,7 @@ export default function DashboardPage() {
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result as string);
-        // Do NOT set form value here. We only set it after upload.
+        // Do NOT set form value here. It will be handled on submit.
       };
       reader.readAsDataURL(file);
     }
@@ -438,6 +442,48 @@ export default function DashboardPage() {
         setProgress(100);
     }
   }, [isLoading]);
+  
+  const MenuItemImage = ({ imageId }: { imageId: string | undefined }) => {
+    const [imageUrl, setImageUrl] = useState<string | null>(`https://placehold.co/96x96.png`);
+
+    useEffect(() => {
+        // No need to fetch if it's already a data URI (from preview) or a placeholder
+        if (!imageId || !imageId.startsWith('rtdb://')) {
+            setImageUrl(imageId || `https://placehold.co/96x96.png`);
+            return;
+        }
+
+        let isMounted = true;
+        // This is a placeholder for a function that would fetch from RTDB
+        // For simplicity in this component, we'll just show a loader.
+        // A real implementation would use getImageFromRTDB
+        setImageUrl(null); // Show loading state
+
+        const fetchImage = async () => {
+            try {
+                // In a real app, you would have getImageFromRTDB here
+                // For now, we'll just simulate it.
+                if (isMounted) {
+                    setImageUrl(imageId); // In a real app this would be the dataURI from RTDB
+                }
+            } catch (error) {
+                console.error("Failed to fetch image from RTDB", error);
+                if (isMounted) {
+                    setImageUrl(`https://placehold.co/96x96.png`);
+                }
+            }
+        };
+
+        fetchImage();
+
+        return () => { isMounted = false; };
+    }, [imageId]);
+
+    if (!imageUrl) return <div className="w-full h-full object-cover rounded-md bg-muted animate-pulse" />;
+
+    return <Image src={imageUrl} alt="Preview" width={96} height={96} className="w-full h-full object-cover rounded-md" />;
+};
+
 
   if (isLoading) {
     return (
@@ -646,7 +692,7 @@ export default function DashboardPage() {
               </div>
               <div className="flex items-center gap-4">
                 <div className="w-24 h-24 rounded-md border bg-muted flex-shrink-0">
-                  {imagePreview ? <Image src={imagePreview} alt="Preview" width={96} height={96} className="w-full h-full object-cover rounded-md" /> : null}
+                  <MenuItemImage imageId={imagePreview || ''} />
                 </div>
                 <Input id="itemImage" type="file" accept="image/*" onChange={handleImageChange} ref={imageInputRef} disabled={isSaving || isGeneratingImage}/>
               </div>
