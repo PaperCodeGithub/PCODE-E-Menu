@@ -370,13 +370,22 @@ export default function DashboardPage() {
 
     setIsGeneratingImage(true);
     try {
-      const imageUrl = await generateImage(itemName);
-      setImagePreview(imageUrl);
+      const rawImageUrl = await generateImage(itemName);
+      
+      // Now, compress the received image
+      const compressedImageUrl = await compressImage(rawImageUrl, {
+        maxWidth: 400,
+        maxHeight: 300,
+        quality: 0.6,
+      });
+
+      setImagePreview(compressedImageUrl);
+
     } catch (error) {
       console.error('Failed to generate image:', error);
       toast({
         title: 'AI Image Generation Failed',
-        description: 'Could not generate an image. Please try again.',
+        description: 'Could not generate an image. Please try again or upload one manually.',
         variant: 'destructive',
       });
     } finally {

@@ -24,9 +24,9 @@ export async function generateImage(dishName: string): Promise<GenerateImageOutp
 }
 
 const MAX_RETRIES = 3;
-// Set a safe size limit in bytes for the data URI string (e.g., 950 KB)
-// to avoid exceeding Firestore's 1 MiB document limit.
-const MAX_SIZE_BYTES = 950 * 1024; 
+// Set a safe size limit in bytes for the data URI string (e.g., 500 KB)
+// to avoid exceeding Firestore's 1 MiB document limit after compression.
+const MAX_SIZE_BYTES = 500 * 1024; 
 
 const generateImageFlow = ai.defineFlow(
   {
@@ -45,16 +45,17 @@ const generateImageFlow = ai.defineFlow(
       });
 
       if (media?.url) {
+        let imageUrl = media.url;
+        if (!imageUrl.startsWith('data:')) {
+          imageUrl = `data:image/png;base64,${imageUrl}`;
+        }
+        
         // The length of the base64 string is a good proxy for byte size.
-        if (media.url.length <= MAX_SIZE_BYTES) {
-          // Ensure the URL is a full data URI before returning
-          if (media.url.startsWith('data:')) {
-              return media.url;
-          }
-          return `data:image/png;base64,${media.url}`;
+        if (imageUrl.length <= MAX_SIZE_BYTES) {
+          return imageUrl;
         }
         // If the image is too large, the loop will continue to the next attempt.
-        console.log(`Attempt ${i + 1}: Generated image is too large (${media.url.length} bytes). Retrying...`);
+        console.log(`Attempt ${i + 1}: Generated image is too large (${imageUrl.length} bytes). Retrying...`);
       }
     }
 
