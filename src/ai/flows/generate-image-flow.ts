@@ -16,7 +16,7 @@ const GenerateImageInputSchema = z.object({
 });
 export type GenerateImageInput = z.infer<typeof GenerateImageInputSchema>;
 
-const GenerateImageOutputSchema = z.any().describe('The buffer of the generated image.');
+const GenerateImageOutputSchema = z.string().describe('The data URI of the generated image.');
 export type GenerateImageOutput = z.infer<typeof GenerateImageOutputSchema>;
 
 export async function generateImage(dishName: string): Promise<GenerateImageOutput> {
@@ -39,9 +39,7 @@ const generateImageFlow = ai.defineFlow(
     });
 
     if (media?.url) {
-      // The Gemini API returns a data URI, we need to extract the base64 part and convert it to a buffer.
-      const base64Data = media.url.substring(media.url.indexOf(',') + 1);
-      return Buffer.from(base64Data, 'base64');
+      return media.url;
     }
 
     // If generation fails entirely, throw an error.

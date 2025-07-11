@@ -71,7 +71,6 @@ import { Progress } from "@/components/ui/progress";
 import { generateDescription } from "@/ai/flows/generate-description-flow";
 import { generateImage } from "@/ai/flows/generate-image-flow";
 import { useDashboard } from "./layout";
-import { uploadImage } from "@/lib/image-hosting";
 import { compressImage } from "@/lib/image-utils";
 
 
@@ -85,6 +84,7 @@ const menuItemSchema = z.object({
   description: z.string().min(5, "Description must be at least 5 characters."),
   price: z.coerce.number().min(0.01, "Price must be a positive number."),
   categoryId: z.string().min(1, "You must select a category."),
+  image: z.string().optional(),
 });
 
 export default function DashboardPage() {
@@ -164,11 +164,13 @@ export default function DashboardPage() {
         menuItems: currentMenuItems,
         updatedAt: new Date(),
       }, { merge: true });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to save to Firestore:", error);
       toast({
         title: "Could not save data",
-        description: "Your changes could not be saved to the database. The menu might be too large.",
+        description: error.message.includes('exceeds the maximum allowed size')
+          ? "The menu is too large to save. Please try removing some items or reducing image sizes."
+          : "Your changes could not be saved to the database.",
         variant: "destructive"
       });
       throw error;
@@ -187,6 +189,7 @@ export default function DashboardPage() {
       description: "",
       price: 0,
       categoryId: "",
+      image: "",
     },
   });
 
@@ -206,8 +209,9 @@ export default function DashboardPage() {
             description: menuItem.description,
             price: menuItem.price,
             categoryId: menuItem.categoryId,
+            image: menuItem.image || '',
           }
-        : { name: "", description: "", price: 0, categoryId: "" }
+        : { name: "", description: "", price: 0, categoryId: "", image: "" }
     );
     if (imageInputRef.current) {
       imageInputRef.current.value = "";
@@ -258,15 +262,13 @@ export default function DashboardPage() {
     let finalImageUrl = editingMenuItem?.image || null;
 
     try {
-      if (imagePreview && imagePreview.startsWith('data:')) {
-        // This is a new image (from upload or AI) that needs to be hosted
-        const compressedDataUri = await compressImage(imagePreview, { maxWidth: 800, maxHeight: 600, quality: 0.7 });
-        const imageBuffer = Buffer.from(compressedDataUri.split(',')[1], 'base64');
-        finalImageUrl = await uploadImage(imageBuffer);
+      if (imagePreview && imagePreview !== finalImageUrl) {
+        // This is a new or changed image that needs to be compressed
+        finalImageUrl = await compressImage(imagePreview, { maxWidth: 400, maxHeight: 300, quality: 0.6 });
       }
       
       let updatedMenuItems;
-      const newItemData = { ...values, image: finalImageUrl || `https://placehold.co/600x400.png` };
+      const newItemData = { ...values, image: finalImageUrl || `https://placehold.co/400x300.png` };
 
       if (editingMenuItem) {
         updatedMenuItems = menuItems.map((item) =>
@@ -290,11 +292,7 @@ export default function DashboardPage() {
       setImagePreview(null);
     } catch (e) {
         console.error("Failed during menu item submission:", e);
-        toast({
-            title: "Could not save item",
-            description: "An error occurred while uploading the image or saving the data.",
-            variant: "destructive"
-        });
+        // Error is handled by saveData
     } finally {
       setIsSaving(false);
     }
@@ -373,11 +371,8 @@ export default function DashboardPage() {
 
     setIsGeneratingImage(true);
     try {
-      const imageBuffer = await generateImage(itemName);
-      // Convert buffer to data URI for preview
-      const dataUri = `data:image/png;base64,${Buffer.from(imageBuffer).toString('base64')}`;
+      const dataUri = await generateImage(itemName);
       setImagePreview(dataUri);
-
     } catch (error) {
       console.error('Failed to generate image:', error);
       toast({
