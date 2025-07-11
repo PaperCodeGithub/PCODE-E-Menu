@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -22,6 +23,8 @@ import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/icons';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Terminal } from 'lucide-react';
 
 function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -39,6 +42,12 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
+  const [hostname, setHostname] = useState('');
+
+  useEffect(() => {
+    // This will only run on the client side
+    setHostname(window.location.hostname);
+  }, []);
 
   // Redirect if user is already logged in
   useEffect(() => {
@@ -127,6 +136,16 @@ export default function LoginPage() {
           <CardDescription>Login or create an account to manage your menu.</CardDescription>
         </CardHeader>
         <CardContent>
+          {hostname && (
+            <Alert className="mb-4">
+              <Terminal className="h-4 w-4" />
+              <AlertTitle>Authentication Help</AlertTitle>
+              <AlertDescription>
+                If Google Sign-In fails, add this domain to your Firebase Authorized Domains list: <br />
+                <strong className="font-mono">{hostname}</strong>
+              </AlertDescription>
+            </Alert>
+          )}
           <Tabs defaultValue="login">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="login">Login</TabsTrigger>
