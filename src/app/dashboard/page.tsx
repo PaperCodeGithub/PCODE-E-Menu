@@ -23,8 +23,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { v4 as uuidv4 } from "uuid";
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
-import { getStorage, ref, uploadString, getDownloadURL } from "firebase/storage";
-import { db, storage } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import type { Category, MenuItem } from "@/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -72,6 +71,7 @@ import { Progress } from "@/components/ui/progress";
 import { generateDescription } from "@/ai/flows/generate-description-flow";
 import { generateImage } from "@/ai/flows/generate-image-flow";
 import { useDashboard } from "./layout";
+import { compressImage } from "@/lib/image-utils";
 
 
 // Zod Schemas for Validation
@@ -254,20 +254,11 @@ export default function DashboardPage() {
 
     setIsSaving(true);
     let imageUrl = editingMenuItem?.image || "https://placehold.co/600x400.png";
-    console.log("Initial imageUrl:", imageUrl);
-    console.log("imagePreview state:", imagePreview ? imagePreview.substring(0, 50) + '...' : 'null');
-
 
     try {
-      // If there is a new image (it will be a data URI), upload it to storage.
+      // If there is a new image (it will be a data URI), compress it.
       if (imagePreview && imagePreview.startsWith('data:')) {
-        console.log("Attempting to upload new image to Firebase Storage...");
-        const imageRef = ref(storage, `menuItems/${user.uid}/${uuidv4()}`);
-        const uploadResult = await uploadString(imageRef, imagePreview, 'data_url');
-        imageUrl = await getDownloadURL(uploadResult.ref);
-        console.log("Image uploaded successfully. New URL:", imageUrl);
-      } else {
-         console.log("No new image to upload. Using existing URL:", imageUrl);
+        imageUrl = await compressImage(imagePreview);
       }
       
       let updatedMenuItems;
@@ -294,7 +285,7 @@ export default function DashboardPage() {
       setMenuItemDialogOpen(false);
       setImagePreview(null);
     } catch (e) {
-        console.error(">>> DEBUG: Failed during menu item submission:", e);
+        console.error("Failed during menu item submission:", e);
         toast({ title: "Save Failed", description: "There was an error saving the menu item. Check the console for details.", variant: "destructive" });
     } finally {
       setIsSaving(false);
@@ -758,5 +749,7 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
 
     
