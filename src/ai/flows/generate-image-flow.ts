@@ -23,6 +23,11 @@ export async function generateImage(dishName: string): Promise<GenerateImageOutp
   return generateImageFlow({ dishName });
 }
 
+const MAX_RETRIES = 3;
+// Set a safe size limit in bytes for the data URI string (e.g., 500 KB)
+// to avoid exceeding Firestore's 1 MiB document limit.
+const MAX_SIZE_BYTES = 500 * 1024; 
+
 const generateImageFlow = ai.defineFlow(
   {
     name: 'generateImageFlow',
@@ -30,24 +35,30 @@ const generateImageFlow = ai.defineFlow(
     outputSchema: GenerateImageOutputSchema,
   },
   async ({ dishName }) => {
-    const { media } = await ai.generate({
-      model: 'googleai/gemini-2.0-flash-preview-image-generation',
-      prompt: `A simple, clean, appetizing photo of ${dishName} on a plain white background, minimalist style. The image should be web-optimized and have a small file size.`,
-      config: {
-        responseModalities: ['TEXT', 'IMAGE'],
-      },
-    });
+    for (let i = 0; i < MAX_RETRIES; i++) {
+      const { media } = await ai.generate({
+        model: 'googleai/gemini-2.0-flash-preview-image-generation',
+        prompt: `A simple, clean, appetizing photo of ${dishName} on a plain white background, minimalist style. The image should be web-optimized and have a small file size.`,
+        config: {
+          responseModalities: ['TEXT', 'IMAGE'],
+        },
+      });
 
-    if (!media?.url) {
-      throw new Error('Image generation failed to return a valid image.');
+      if (media?.url) {
+        // The length of the base64 string is a good proxy for byte size.
+        if (media.url.length <= MAX_SIZE_BYTES) {
+          // Ensure the URL is a full data URI before returning
+          if (media.url.startsWith('data:')) {
+              return media.url;
+          }
+          return `data:image/png;base64,${media.url}`;
+        }
+        // If the image is too large, the loop will continue to the next attempt.
+        console.log(`Attempt ${i + 1}: Generated image is too large (${media.url.length} bytes). Retrying...`);
+      }
     }
 
-    // Ensure the URL is a full data URI
-    if (media.url.startsWith('data:')) {
-        return media.url;
-    } else {
-        // If the model returns raw base64, prepend the data URI scheme.
-        return `data:image/png;base64,${media.url}`;
-    }
+    // If all retries fail, throw an error.
+    throw new Error(`Failed to generate an image of a suitable size for "${dishName}" after ${MAX_RETRIES} attempts.`);
   }
 );
