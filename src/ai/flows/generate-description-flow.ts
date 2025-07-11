@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview A flow for generating menu item descriptions.
@@ -25,7 +26,7 @@ export async function generateDescription(dishName: string): Promise<GenerateDes
 const prompt = ai.definePrompt({
   name: 'generateDescriptionPrompt',
   input: {schema: GenerateDescriptionInputSchema},
-  prompt: `You are a world-class chef and food writer. Your task is to write a short, appealing, and delicious-sounding menu description for a dish.
+  prompt: `You are a world-class chef and food writer. Your task is to write a short, appealing, and delicious-sounding menu description for a dish. The description must be a maximum of 25 words.
 
 The name of the dish is: {{{dishName}}}
 
