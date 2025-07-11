@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview A flow for generating images for menu items.
@@ -41,6 +42,12 @@ const generateImageFlow = ai.defineFlow(
       throw new Error('Image generation failed to return a valid image.');
     }
 
-    return media.url;
+    // Ensure the URL is a full data URI
+    if (media.url.startsWith('data:')) {
+        return media.url;
+    } else {
+        // If the model returns raw base64, prepend the data URI scheme.
+        return `data:image/png;base64,${media.url}`;
+    }
   }
 );
