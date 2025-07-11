@@ -10,7 +10,7 @@ import axios from 'axios';
  */
 export async function uploadImage(imageBuffer: Buffer): Promise<string> {
   if (!process.env.IMGUR_CLIENT_ID) {
-    throw new Error('Imgur client ID is not configured.');
+    throw new Error('Imgur Client ID is not configured. Please add it to your .env file.');
   }
 
   try {
