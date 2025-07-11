@@ -23,7 +23,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { v4 as uuidv4 } from "uuid";
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getStorage, ref, uploadString, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '@/lib/firebase';
 import type { Category, MenuItem } from "@/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -159,18 +160,26 @@ export default function DashboardPage() {
     if (!user) return;
     try {
       const menuDocRef = getMenuDocument(user.uid);
+      // Remove any base64 image data before saving to prevent size issues
+      const cleanMenuItems = currentMenuItems.map(item => {
+        if (item.image && item.image.startsWith('data:')) {
+          // This case should not happen with the new logic, but as a safeguard
+          console.warn(`Found a data URI for ${item.name}, replacing with placeholder.`);
+          return { ...item, image: `https://placehold.co/400x300.png` };
+        }
+        return item;
+      });
+
       await setDoc(menuDocRef, {
         categories: currentCategories,
-        menuItems: currentMenuItems,
+        menuItems: cleanMenuItems,
         updatedAt: new Date(),
       }, { merge: true });
     } catch (error: any) {
       console.error("Failed to save to Firestore:", error);
       toast({
         title: "Could not save data",
-        description: error.message.includes('exceeds the maximum allowed size')
-          ? "The menu is too large to save. Please try removing some items or reducing image sizes."
-          : "Your changes could not be saved to the database.",
+        description: error.message,
         variant: "destructive"
       });
       throw error;
@@ -202,6 +211,7 @@ export default function DashboardPage() {
   const handleOpenMenuItemDialog = (menuItem: MenuItem | null) => {
     setEditingMenuItem(menuItem);
     setImagePreview(menuItem?.image || null);
+    menuItemForm.setValue('image', menuItem?.image || '');
     menuItemForm.reset(
       menuItem
         ? {
@@ -249,30 +259,27 @@ export default function DashboardPage() {
 
   const handleMenuItemSubmit = async (values: z.infer<typeof menuItemSchema>) => {
     if (!user) return;
-    if (!values.categoryId) {
-        toast({
-            title: "Category Required",
-            description: "Please select a category for the menu item.",
-            variant: "destructive",
-        });
-        return;
-    }
-
     setIsSaving(true);
-    let finalImageUrl = editingMenuItem?.image || null;
+    let finalImageUrl = values.image || (editingMenuItem?.image || '');
 
     try {
-      if (imagePreview && imagePreview !== finalImageUrl) {
-        // This is a new or changed image that needs to be compressed
-        finalImageUrl = await compressImage(imagePreview, { maxWidth: 400, maxHeight: 300, quality: 0.6 });
-      }
+        // If imagePreview is a data URI, it means a new file was selected for upload
+        if (imagePreview && imagePreview.startsWith('data:')) {
+            toast({title: "Uploading Image...", description: "Please wait while your image is being uploaded."});
+            const compressedDataUrl = await compressImage(imagePreview, { maxWidth: 800, maxHeight: 600, quality: 0.7 });
+            const imageId = uuidv4();
+            const storageRef = ref(storage, `menu_items/${user.uid}/${imageId}.jpeg`);
+            const uploadResult = await uploadString(storageRef, compressedDataUrl, 'data_url', { contentType: 'image/jpeg' });
+            finalImageUrl = await getDownloadURL(uploadResult.ref);
+            toast({title: "Upload Complete!", description: "Your image has been saved."});
+        }
       
       let updatedMenuItems;
-      const newItemData = { ...values, image: finalImageUrl || `https://placehold.co/400x300.png` };
+      const newItemData = { ...values, image: finalImageUrl || `https://placehold.co/600x400.png` };
 
       if (editingMenuItem) {
         updatedMenuItems = menuItems.map((item) =>
-          item.id === editingMenuItem.id ? { ...item, ...newItemData } : item
+          item.id === editingMenuItem.id ? { ...item, ...newItemData, id: item.id } : item
         );
       } else {
         const newItem: MenuItem = { id: uuidv4(), ...newItemData };
@@ -290,9 +297,9 @@ export default function DashboardPage() {
 
       setMenuItemDialogOpen(false);
       setImagePreview(null);
-    } catch (e) {
+    } catch (e: any) {
         console.error("Failed during menu item submission:", e);
-        // Error is handled by saveData
+        toast({ title: "Operation Failed", description: e.message, variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }
@@ -360,6 +367,7 @@ export default function DashboardPage() {
   };
   
   const handleGenerateImage = async () => {
+    if (!user) return;
     const itemName = menuItemForm.getValues('name');
     if (!itemName) {
       toast({
@@ -371,8 +379,9 @@ export default function DashboardPage() {
 
     setIsGeneratingImage(true);
     try {
-      const dataUri = await generateImage(itemName);
-      setImagePreview(dataUri);
+      const imageUrl = await generateImage(itemName, user.uid);
+      setImagePreview(imageUrl);
+      menuItemForm.setValue('image', imageUrl); // Save URL to form
     } catch (error) {
       console.error('Failed to generate image:', error);
       toast({
@@ -404,6 +413,7 @@ export default function DashboardPage() {
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result as string);
+        // Do NOT set form value here. We only set it after upload.
       };
       reader.readAsDataURL(file);
     }
@@ -638,7 +648,7 @@ export default function DashboardPage() {
                 <div className="w-24 h-24 rounded-md border bg-muted flex-shrink-0">
                   {imagePreview ? <Image src={imagePreview} alt="Preview" width={96} height={96} className="w-full h-full object-cover rounded-md" /> : null}
                 </div>
-                <Input id="itemImage" type="file" accept="image/*" onChange={handleImageChange} ref={imageInputRef} disabled={isSaving}/>
+                <Input id="itemImage" type="file" accept="image/*" onChange={handleImageChange} ref={imageInputRef} disabled={isSaving || isGeneratingImage}/>
               </div>
             </div>
             <div className="space-y-2">
@@ -689,8 +699,8 @@ export default function DashboardPage() {
             
             <DialogFooter>
               <DialogClose asChild><Button type="button" variant="outline" disabled={isSaving}>Cancel</Button></DialogClose>
-              <Button type="submit" disabled={isSaving}>
-                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <Button type="submit" disabled={isSaving || isGeneratingImage}>
+                {(isSaving || isGeneratingImage) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Save Item
               </Button>
             </DialogFooter>

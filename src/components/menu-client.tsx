@@ -330,14 +330,14 @@ export function MenuClient({ restaurantId }: { restaurantId: string }) {
                   {itemsInCategory.map((item) => (
                     <Card key={item.id} className="flex flex-col overflow-hidden transition-shadow hover:shadow-lg animate-in fade-in-0 duration-300">
                       {item.image && (
-                         <div className="overflow-hidden">
+                         <div className="overflow-hidden h-48 w-full relative">
                            <Image
                              data-ai-hint="food meal"
                              src={item.image}
                              alt={item.name}
-                             width={600}
-                             height={400}
-                             className="w-full h-48 object-cover"
+                             fill
+                             sizes="(max-width: 768px) 100vw, 50vw"
+                             className="object-cover"
                            />
                          </div>
                       )}
@@ -391,7 +391,9 @@ export function MenuClient({ restaurantId }: { restaurantId: string }) {
                 <div className="flex-grow overflow-y-auto -mx-6 px-6 divide-y">
                     {order.map(item => (
                         <div key={item.id} className="flex items-center gap-4 py-4">
-                            <Image src={item.image!} alt="" width={64} height={64} className="rounded-md w-16 h-16 object-cover" data-ai-hint="food meal"/>
+                            <div className="w-16 h-16 relative rounded-md overflow-hidden flex-shrink-0">
+                                <Image src={item.image || `https://placehold.co/64x64.png`} alt={item.name} fill sizes="64px" className="object-cover" data-ai-hint="food meal"/>
+                            </div>
                             <div className="flex-grow">
                                 <p className="font-semibold">{item.name}</p>
                                 <p className="text-sm text-muted-foreground">{currencySymbol}{item.price.toFixed(2)}</p>
