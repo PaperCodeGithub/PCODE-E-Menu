@@ -22,8 +22,9 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { v4 as uuidv4 } from "uuid";
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { ref, uploadString, getDownloadURL } from "firebase/storage";
+import { db, storage } from '@/lib/firebase';
 import type { Category, MenuItem } from "@/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -71,7 +72,6 @@ import { Progress } from "@/components/ui/progress";
 import { generateDescription } from "@/ai/flows/generate-description-flow";
 import { generateImage } from "@/ai/flows/generate-image-flow";
 import { useDashboard } from "./layout";
-import { compressImage } from "@/lib/image-utils";
 
 
 // Zod Schemas for Validation
@@ -154,23 +154,23 @@ export default function DashboardPage() {
   }, [user, toast, getMenuDocument]);
   
   // Save data to Firestore
-  const saveData = useCallback(async (currentCategories: Category[], currentMenuItems: MenuItem[]) => {
-      if (!user) return;
-      try {
-        const menuDocRef = getMenuDocument(user.uid);
-        const dataToSave = {
-            categories: currentCategories,
-            menuItems: currentMenuItems,
-            updatedAt: new Date(), 
-        };
-
-        await setDoc(menuDocRef, dataToSave, { merge: true });
-
-      } catch (error) {
-        console.error("Failed to save to Firestore:", error);
-        toast({ title: "Could not save data", description: "Your changes could not be saved to the database.", variant: "destructive" });
-        throw error; // re-throw error to be caught by caller
-      }
+  const saveData = useCallback(async (data: { categories?: Category[], menuItems?: MenuItem[] }) => {
+    if (!user) return;
+    try {
+      const menuDocRef = getMenuDocument(user.uid);
+      await setDoc(menuDocRef, {
+        ...data,
+        updatedAt: new Date(),
+      }, { merge: true });
+    } catch (error) {
+      console.error("Failed to save to Firestore:", error);
+      toast({
+        title: "Could not save data",
+        description: "Your changes could not be saved to the database.",
+        variant: "destructive"
+      });
+      throw error;
+    }
   }, [user, getMenuDocument, toast]);
 
   const categoryForm = useForm<z.infer<typeof categorySchema>>({
@@ -226,7 +226,7 @@ export default function DashboardPage() {
     }
     
     try {
-      await saveData(updatedCategories, menuItems);
+      await saveData({ categories: updatedCategories, menuItems });
       setCategories(updatedCategories);
       if (editingCategory) {
         toast({ title: "Category Updated", description: `"${values.name}" has been updated.` });
@@ -256,9 +256,11 @@ export default function DashboardPage() {
     let imageUrl = editingMenuItem?.image || "https://placehold.co/600x400.png";
 
     try {
-      // If there is a new image (it will be a data URI), compress it.
+      // If there is a new image preview (it will be a data URI), upload it to Storage.
       if (imagePreview && imagePreview.startsWith('data:')) {
-        imageUrl = await compressImage(imagePreview);
+        const storageRef = ref(storage, `menu_items/${user.uid}/${uuidv4()}.jpg`);
+        const uploadResult = await uploadString(storageRef, imagePreview, 'data_url');
+        imageUrl = await getDownloadURL(uploadResult.ref);
       }
       
       let updatedMenuItems;
@@ -273,7 +275,7 @@ export default function DashboardPage() {
         updatedMenuItems = [...menuItems, newItem];
       }
 
-      await saveData(categories, updatedMenuItems);
+      await saveData({ categories, menuItems: updatedMenuItems });
       setMenuItems(updatedMenuItems);
 
       if (editingMenuItem) {
@@ -310,7 +312,7 @@ export default function DashboardPage() {
     }
     
     try {
-      await saveData(updatedCategories, updatedMenuItems);
+      await saveData({ categories: updatedCategories, menuItems: updatedMenuItems });
       setCategories(updatedCategories);
       setMenuItems(updatedMenuItems);
 
@@ -749,7 +751,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    
-
-    
