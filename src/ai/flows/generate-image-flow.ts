@@ -32,7 +32,7 @@ const generateImageFlow = ai.defineFlow(
   async ({ dishName }) => {
     const { media } = await ai.generate({
       model: 'googleai/gemini-2.0-flash-preview-image-generation',
-      prompt: `A delicious-looking, professional photograph of a plate of ${dishName}, on a clean restaurant table background.`,
+      prompt: `A simple, clean, appetizing photo of ${dishName} on a plain white background, minimalist style. The image should be web-optimized and have a small file size.`,
       config: {
         responseModalities: ['TEXT', 'IMAGE'],
       },
