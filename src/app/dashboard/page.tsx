@@ -71,6 +71,7 @@ import { Progress } from "@/components/ui/progress";
 import { generateDescription } from "@/ai/flows/generate-description-flow";
 import { generateImage } from "@/ai/flows/generate-image-flow";
 import { useDashboard } from "./layout";
+import { uploadImage } from "@/lib/image-hosting";
 import { compressImage } from "@/lib/image-utils";
 
 
@@ -254,20 +255,18 @@ export default function DashboardPage() {
     }
 
     setIsSaving(true);
-    let imageUrl = editingMenuItem?.image || null; // Start with existing or null
+    let finalImageUrl = editingMenuItem?.image || null;
 
     try {
-      // If there is a new image preview (it will be a data URI), compress it.
       if (imagePreview && imagePreview.startsWith('data:')) {
-        imageUrl = await compressImage(imagePreview, {
-          maxWidth: 400,
-          maxHeight: 300,
-          quality: 0.6, // Use more aggressive JPEG compression
-        });
+        // This is a new image (from upload or AI) that needs to be hosted
+        const compressedDataUri = await compressImage(imagePreview, { maxWidth: 800, maxHeight: 600, quality: 0.7 });
+        const imageBuffer = Buffer.from(compressedDataUri.split(',')[1], 'base64');
+        finalImageUrl = await uploadImage(imageBuffer);
       }
       
       let updatedMenuItems;
-      const newItemData = { ...values, image: imageUrl || `https://placehold.co/600x400.png` };
+      const newItemData = { ...values, image: finalImageUrl || `https://placehold.co/600x400.png` };
 
       if (editingMenuItem) {
         updatedMenuItems = menuItems.map((item) =>
@@ -291,7 +290,11 @@ export default function DashboardPage() {
       setImagePreview(null);
     } catch (e) {
         console.error("Failed during menu item submission:", e);
-        // Error toast is shown in saveData
+        toast({
+            title: "Could not save item",
+            description: "An error occurred while uploading the image or saving the data.",
+            variant: "destructive"
+        });
     } finally {
       setIsSaving(false);
     }
@@ -370,16 +373,10 @@ export default function DashboardPage() {
 
     setIsGeneratingImage(true);
     try {
-      const rawImageUrl = await generateImage(itemName);
-      
-      // Now, compress the received image
-      const compressedImageUrl = await compressImage(rawImageUrl, {
-        maxWidth: 400,
-        maxHeight: 300,
-        quality: 0.6,
-      });
-
-      setImagePreview(compressedImageUrl);
+      const imageBuffer = await generateImage(itemName);
+      // Convert buffer to data URI for preview
+      const dataUri = `data:image/png;base64,${Buffer.from(imageBuffer).toString('base64')}`;
+      setImagePreview(dataUri);
 
     } catch (error) {
       console.error('Failed to generate image:', error);
