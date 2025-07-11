@@ -24,9 +24,9 @@ export async function generateImage(dishName: string): Promise<GenerateImageOutp
 }
 
 const MAX_RETRIES = 3;
-// Set a safe size limit in bytes for the data URI string (e.g., 500 KB)
+// Set a safe size limit in bytes for the data URI string (e.g., 950 KB)
 // to avoid exceeding Firestore's 1 MiB document limit.
-const MAX_SIZE_BYTES = 500 * 1024; 
+const MAX_SIZE_BYTES = 950 * 1024; 
 
 const generateImageFlow = ai.defineFlow(
   {
