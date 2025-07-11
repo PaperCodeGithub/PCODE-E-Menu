@@ -260,9 +260,9 @@ export default function DashboardPage() {
       // If there is a new image preview (it will be a data URI), compress it.
       if (imagePreview && imagePreview.startsWith('data:')) {
         imageUrl = await compressImage(imagePreview, {
-          maxWidth: 800,
-          maxHeight: 600,
-          quality: 0.7, // Use JPEG compression
+          maxWidth: 400,
+          maxHeight: 300,
+          quality: 0.6, // Use more aggressive JPEG compression
         });
       }
       
