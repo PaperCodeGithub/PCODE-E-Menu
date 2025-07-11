@@ -32,7 +32,7 @@ const generateImageFlow = ai.defineFlow(
   async ({ dishName }) => {
     const { media } = await ai.generate({
       model: 'googleai/gemini-2.0-flash-preview-image-generation',
-      prompt: `A simple, clean, appetizing photo of ${dishName} on a plain white background, minimalist style. The image should be web-optimized and have a small file size.`,
+      prompt: `Create an image of "${dishName}". Create the image as instructed, but strictly ensure that the final image file size does not exceed 500 KB. Use appropriate compression techniques, reduce resolution (e.g., maximum 800x800), simplify detail, and optimize the image format (prefer JPEG or WebP) to stay within the limit. This size constraint is mandatory. If the design is too complex to remain under 500 KB, simplify the image while preserving the core idea.`,
       config: {
         responseModalities: ['TEXT', 'IMAGE'],
       },
