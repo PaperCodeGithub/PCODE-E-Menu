@@ -23,8 +23,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { v4 as uuidv4 } from "uuid";
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { ref, uploadString, getDownloadURL } from "firebase/storage";
-import { db, storage } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import type { Category, MenuItem } from "@/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -72,6 +71,7 @@ import { Progress } from "@/components/ui/progress";
 import { generateDescription } from "@/ai/flows/generate-description-flow";
 import { generateImage } from "@/ai/flows/generate-image-flow";
 import { useDashboard } from "./layout";
+import { compressImage } from "@/lib/image-utils";
 
 
 // Zod Schemas for Validation
@@ -154,19 +154,20 @@ export default function DashboardPage() {
   }, [user, toast, getMenuDocument]);
   
   // Save data to Firestore
-  const saveData = useCallback(async (data: { categories?: Category[], menuItems?: MenuItem[] }) => {
+  const saveData = useCallback(async (currentCategories: Category[], currentMenuItems: MenuItem[]) => {
     if (!user) return;
     try {
       const menuDocRef = getMenuDocument(user.uid);
       await setDoc(menuDocRef, {
-        ...data,
+        categories: currentCategories,
+        menuItems: currentMenuItems,
         updatedAt: new Date(),
       }, { merge: true });
     } catch (error) {
       console.error("Failed to save to Firestore:", error);
       toast({
         title: "Could not save data",
-        description: "Your changes could not be saved to the database.",
+        description: "Your changes could not be saved to the database. The menu might be too large.",
         variant: "destructive"
       });
       throw error;
@@ -226,7 +227,7 @@ export default function DashboardPage() {
     }
     
     try {
-      await saveData({ categories: updatedCategories, menuItems });
+      await saveData(updatedCategories, menuItems);
       setCategories(updatedCategories);
       if (editingCategory) {
         toast({ title: "Category Updated", description: `"${values.name}" has been updated.` });
@@ -253,18 +254,20 @@ export default function DashboardPage() {
     }
 
     setIsSaving(true);
-    let imageUrl = editingMenuItem?.image || "https://placehold.co/600x400.png";
+    let imageUrl = editingMenuItem?.image || null; // Start with existing or null
 
     try {
-      // If there is a new image preview (it will be a data URI), upload it to Storage.
+      // If there is a new image preview (it will be a data URI), compress it.
       if (imagePreview && imagePreview.startsWith('data:')) {
-        const storageRef = ref(storage, `menu_items/${user.uid}/${uuidv4()}.jpg`);
-        const uploadResult = await uploadString(storageRef, imagePreview, 'data_url');
-        imageUrl = await getDownloadURL(uploadResult.ref);
+        imageUrl = await compressImage(imagePreview, {
+          maxWidth: 800,
+          maxHeight: 600,
+          quality: 0.7, // Use JPEG compression
+        });
       }
       
       let updatedMenuItems;
-      const newItemData = { ...values, image: imageUrl };
+      const newItemData = { ...values, image: imageUrl || `https://placehold.co/600x400.png` };
 
       if (editingMenuItem) {
         updatedMenuItems = menuItems.map((item) =>
@@ -275,7 +278,7 @@ export default function DashboardPage() {
         updatedMenuItems = [...menuItems, newItem];
       }
 
-      await saveData({ categories, menuItems: updatedMenuItems });
+      await saveData(categories, updatedMenuItems);
       setMenuItems(updatedMenuItems);
 
       if (editingMenuItem) {
@@ -288,7 +291,7 @@ export default function DashboardPage() {
       setImagePreview(null);
     } catch (e) {
         console.error("Failed during menu item submission:", e);
-        toast({ title: "Save Failed", description: "There was an error saving the menu item. Check the console for details.", variant: "destructive" });
+        // Error toast is shown in saveData
     } finally {
       setIsSaving(false);
     }
@@ -312,7 +315,7 @@ export default function DashboardPage() {
     }
     
     try {
-      await saveData({ categories: updatedCategories, menuItems: updatedMenuItems });
+      await saveData(updatedCategories, updatedMenuItems);
       setCategories(updatedCategories);
       setMenuItems(updatedMenuItems);
 
